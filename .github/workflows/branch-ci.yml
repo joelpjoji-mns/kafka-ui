@@ -1,4 +1,4 @@
-name: "Personal: Branch CI"
+name: "Custom Kafka UI: CI"
 
 on:
   workflow_dispatch:
@@ -52,7 +52,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # https://github.com/actions/setup-node/releases/tag/v4
         with:
-          node-version: "22.12.0"
+          node-version: "22.13.0"
           cache: "pnpm"
           cache-dependency-path: "./frontend/pnpm-lock.yaml"
 
@@ -69,9 +69,34 @@ jobs:
       - name: Lint frontend
         run: |
           cd frontend
-          pnpm eslint --quiet --ext .tsx,.ts src/
+          pnpm lint:CI
 
       - name: Run frontend tests
         run: |
           cd frontend
           pnpm test:CI
+
+  package-jar:
+    name: Package application JAR
+    needs: [backend-tests, frontend-tests]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2 # https://github.com/actions/checkout/releases/tag/v4.0.0
+
+      - name: Set up JDK
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # https://github.com/actions/setup-java/releases/tag/v4
+        with:
+          java-version-file: '.java-version'
+          distribution: 'zulu'
+          cache: 'gradle'
+
+      - name: Package JAR with frontend
+        shell: bash
+        run: |
+          version="ci-${GITHUB_SHA::7}"
+          ./gradlew :api:bootJar --no-daemon \
+            -Pinclude-frontend=true \
+            -Pversion="$version"
+          test -f "api/build/libs/api-$version.jar"
