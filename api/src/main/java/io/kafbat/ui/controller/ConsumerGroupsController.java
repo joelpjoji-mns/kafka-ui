@@ -11,7 +11,10 @@ import io.kafbat.ui.exception.ValidationException;
 import io.kafbat.ui.mapper.ConsumerGroupMapper;
 import io.kafbat.ui.model.ConsumerGroupDTO;
 import io.kafbat.ui.model.ConsumerGroupDetailsDTO;
+import io.kafbat.ui.model.ConsumerGroupOffsetResetImpactDTO;
 import io.kafbat.ui.model.ConsumerGroupOffsetsResetDTO;
+import io.kafbat.ui.model.ConsumerGroupOffsetsResetPartitionPreviewDTO;
+import io.kafbat.ui.model.ConsumerGroupOffsetsResetPreviewDTO;
 import io.kafbat.ui.model.ConsumerGroupOrderingDTO;
 import io.kafbat.ui.model.ConsumerGroupStateDTO;
 import io.kafbat.ui.model.ConsumerGroupsLagResponseDTO;
@@ -240,65 +243,158 @@ public class ConsumerGroupsController extends AbstractController implements Cons
   }
 
   @Override
-  public Mono<ResponseEntity<Void>> resetConsumerGroupOffsets(String clusterName,
-                                                              String group,
-                                                              Mono<ConsumerGroupOffsetsResetDTO> resetDto,
-                                                              ServerWebExchange exchange) {
-    return resetDto.flatMap(reset -> {
-      var context = AccessContext.builder()
-          .cluster(clusterName)
-          .topicActions(reset.getTopic(), TopicAction.VIEW)
-          .consumerGroupActions(group, RESET_OFFSETS)
-          .operationName("resetConsumerGroupOffsets")
-          .build();
+  public Mono<ResponseEntity<Void>> resetConsumerGroupOffsets(
+      String clusterName,
+      String group,
+      Mono<ConsumerGroupOffsetsResetDTO> resetDto,
+      ServerWebExchange exchange) {
+    return resetDto
+        .flatMap(
+            reset -> {
+              var context =
+                  AccessContext.builder()
+                      .cluster(clusterName)
+                      .topicActions(reset.getTopic(), TopicAction.VIEW)
+                      .consumerGroupActions(group, RESET_OFFSETS)
+                      .operationName("resetConsumerGroupOffsets")
+                      .build();
 
-      Supplier<Mono<Void>> mono = () -> {
-        var cluster = getCluster(clusterName);
-        switch (reset.getResetType()) {
-          case EARLIEST:
-            return offsetsResetService
-                .resetToEarliest(cluster, group, reset.getTopic(), reset.getPartitions());
-          case LATEST:
-            return offsetsResetService
-                .resetToLatest(cluster, group, reset.getTopic(), reset.getPartitions());
-          case TIMESTAMP:
-            if (reset.getResetToTimestamp() == null) {
-              return Mono.error(
-                  new ValidationException(
-                      "resetToTimestamp is required when TIMESTAMP reset type used"
-                  )
-              );
-            }
-            return offsetsResetService
-                .resetToTimestamp(cluster, group, reset.getTopic(), reset.getPartitions(),
-                    reset.getResetToTimestamp());
-          case OFFSET:
-            if (CollectionUtils.isEmpty(reset.getPartitionsOffsets())) {
-              return Mono.error(
-                  new ValidationException(
-                      "partitionsOffsets is required when OFFSET reset type used"
-                  )
-              );
-            }
-            Map<Integer, Long> offsets = reset.getPartitionsOffsets().stream()
-                .collect(
-                    toMap(
-                        PartitionOffsetDTO::getPartition,
-                        d -> Optional.ofNullable(d.getOffset()).orElse(0L)
-                    )
-                );
-            return offsetsResetService.resetToOffsets(cluster, group, reset.getTopic(), offsets);
-          default:
-            return Mono.error(
-                new ValidationException("Unknown resetType " + reset.getResetType())
-            );
+              Supplier<Mono<Void>> mono =
+                  () -> {
+                    var cluster = getCluster(clusterName);
+                    switch (reset.getResetType()) {
+                      case EARLIEST:
+                        return offsetsResetService.resetToEarliest(
+                            cluster,
+                            group,
+                            reset.getTopic(),
+                            reset.getPartitions(),
+                            waitForInactive(reset));
+                      case LATEST:
+                        return offsetsResetService.resetToLatest(
+                            cluster,
+                            group,
+                            reset.getTopic(),
+                            reset.getPartitions(),
+                            waitForInactive(reset));
+                      case TIMESTAMP:
+                        if (reset.getResetToTimestamp() == null) {
+                          return Mono.error(
+                              new ValidationException(
+                                  "resetToTimestamp is required when TIMESTAMP reset type used"));
+                        }
+                        return offsetsResetService.resetToTimestamp(
+                            cluster,
+                            group,
+                            reset.getTopic(),
+                            reset.getPartitions(),
+                            reset.getResetToTimestamp(),
+                            waitForInactive(reset));
+                      case OFFSET:
+                        return offsetsResetService.resetToOffsets(
+                            cluster,
+                            group,
+                            reset.getTopic(),
+                            resetOffsets(reset),
+                            waitForInactive(reset));
+                      default:
+                        return Mono.error(
+                            new ValidationException("Unknown resetType " + reset.getResetType()));
+                    }
+                  };
+
+              return validateAccess(context)
+                  .then(Mono.defer(mono))
+                  .doOnEach(sig -> audit(context, sig));
+            })
+        .thenReturn(ResponseEntity.ok().build());
+  }
+
+  @Override
+  public Mono<ResponseEntity<ConsumerGroupOffsetsResetPreviewDTO>> previewConsumerGroupOffsetsReset(
+      String clusterName,
+      String group,
+      Mono<ConsumerGroupOffsetsResetDTO> resetDto,
+      ServerWebExchange exchange) {
+    return resetDto.flatMap(
+        reset -> {
+          var context =
+              AccessContext.builder()
+                  .cluster(clusterName)
+                  .topicActions(reset.getTopic(), TopicAction.VIEW)
+                  .consumerGroupActions(group, RESET_OFFSETS)
+                  .operationName("previewConsumerGroupOffsetsReset")
+                  .build();
+
+          return validateAccess(context)
+              .then(Mono.defer(() -> previewResetOffsets(clusterName, group, reset)))
+              .map(preview -> ResponseEntity.ok(toOffsetResetPreview(reset, preview)))
+              .doOnEach(sig -> audit(context, sig));
+        });
+  }
+
+  private Mono<OffsetsResetService.OffsetResetPreview> previewResetOffsets(
+      String clusterName, String group, ConsumerGroupOffsetsResetDTO reset) {
+    var cluster = getCluster(clusterName);
+    switch (reset.getResetType()) {
+      case EARLIEST:
+        return offsetsResetService.previewToEarliest(
+            cluster, group, reset.getTopic(), reset.getPartitions());
+      case LATEST:
+        return offsetsResetService.previewToLatest(
+            cluster, group, reset.getTopic(), reset.getPartitions());
+      case TIMESTAMP:
+        if (reset.getResetToTimestamp() == null) {
+          return Mono.error(
+              new ValidationException(
+                  "resetToTimestamp is required when TIMESTAMP reset type used"));
         }
-      };
+        return offsetsResetService.previewToTimestamp(
+            cluster, group, reset.getTopic(), reset.getPartitions(), reset.getResetToTimestamp());
+      case OFFSET:
+        return offsetsResetService.previewToOffsets(
+            cluster, group, reset.getTopic(), resetOffsets(reset));
+      default:
+        return Mono.error(new ValidationException("Unknown resetType " + reset.getResetType()));
+    }
+  }
 
-      return validateAccess(context)
-          .then(mono.get())
-          .doOnEach(sig -> audit(context, sig));
-    }).thenReturn(ResponseEntity.ok().build());
+  private Map<Integer, Long> resetOffsets(ConsumerGroupOffsetsResetDTO reset) {
+    if (CollectionUtils.isEmpty(reset.getPartitionsOffsets())) {
+      throw new ValidationException("partitionsOffsets is required when OFFSET reset type used");
+    }
+    return reset.getPartitionsOffsets().stream()
+        .collect(
+            toMap(
+                PartitionOffsetDTO::getPartition,
+                d -> Optional.ofNullable(d.getOffset()).orElse(0L)));
+  }
+
+  private boolean waitForInactive(ConsumerGroupOffsetsResetDTO reset) {
+    return TRUE.equals(reset.getWaitForInactive());
+  }
+
+  private ConsumerGroupOffsetsResetPreviewDTO toOffsetResetPreview(
+      ConsumerGroupOffsetsResetDTO reset, OffsetsResetService.OffsetResetPreview preview) {
+    return new ConsumerGroupOffsetsResetPreviewDTO()
+        .topic(reset.getTopic())
+        .resetType(reset.getResetType())
+        .partitions(
+            preview.partitions().stream().map(this::toOffsetResetPartitionPreview).toList());
+  }
+
+  private ConsumerGroupOffsetsResetPartitionPreviewDTO toOffsetResetPartitionPreview(
+      OffsetsResetService.OffsetResetPartitionPreview preview) {
+    return new ConsumerGroupOffsetsResetPartitionPreviewDTO()
+        .partition(preview.partition())
+        .currentCommittedOffset(preview.currentCommittedOffset())
+        .requestedOffset(preview.requestedOffset())
+        .targetOffset(preview.targetOffset())
+        .logStartOffset(preview.logStartOffset())
+        .logEndOffset(preview.logEndOffset())
+        .impact(ConsumerGroupOffsetResetImpactDTO.valueOf(preview.impact().name()))
+        .affectedMessages(preview.affectedMessages())
+        .targetAdjusted(preview.targetAdjusted());
   }
 
   private ConsumerGroupsPageResponseDTO convertPage(ConsumerGroupService.ConsumerGroupsPage
