@@ -12,6 +12,7 @@ import io.kafbat.ui.model.CreateTopicMessageDTO;
 import io.kafbat.ui.model.MessageFilterIdDTO;
 import io.kafbat.ui.model.MessageFilterRegistrationDTO;
 import io.kafbat.ui.model.MessageFilterTypeDTO;
+import io.kafbat.ui.model.MessageValidationPreviewDTO;
 import io.kafbat.ui.model.PollingModeDTO;
 import io.kafbat.ui.model.SeekDirectionDTO;
 import io.kafbat.ui.model.SeekTypeDTO;
@@ -102,7 +103,7 @@ public class MessagesController extends AbstractController implements MessagesAp
                                                          String topicName,
                                                          Integer limit,
                                                          List<Integer> partitions,
-                                                         String stringFilter,
+                                                         List<String> stringFilter,
                                                          String smartFilterId,
                                                          String keySerde,
                                                          String valueSerde,
@@ -204,6 +205,7 @@ public class MessagesController extends AbstractController implements MessagesAp
                                                                              String smartFilterId,
                                                                              Long offset,
                                                                              Long timestamp,
+                                                                             Long timestampTo,
                                                                              String keySerde,
                                                                              String valueSerde,
                                                                              String cursor,
@@ -236,6 +238,7 @@ public class MessagesController extends AbstractController implements MessagesAp
           valueSerde
       );
     }
+    messagesFlux = messagesService.filterMessagesByTimestampUpperBound(messagesFlux, timestampTo);
     return accessControlService.validateAccess(accessContext)
         .then(Mono.just(ResponseEntity.ok(messagesFlux)))
         .doOnEach(sig -> auditService.audit(accessContext, sig));
@@ -256,6 +259,24 @@ public class MessagesController extends AbstractController implements MessagesAp
         createTopicMessage.flatMap(msg ->
             messagesService.sendMessage(getCluster(clusterName), topicName, msg)
         ).map(m -> new ResponseEntity<Void>(HttpStatus.OK))
+    ).doOnEach(sig -> audit(context, sig));
+  }
+
+  @Override
+  public Mono<ResponseEntity<MessageValidationPreviewDTO>> previewTopicMessage(
+      String clusterName, String topicName, @Valid Mono<CreateTopicMessageDTO> createTopicMessage,
+      ServerWebExchange exchange) {
+
+    var context = AccessContext.builder()
+        .cluster(clusterName)
+        .topicActions(topicName, MESSAGES_PRODUCE)
+        .operationName("previewTopicMessage")
+        .build();
+
+    return validateAccess(context).then(
+        createTopicMessage
+            .flatMap(message -> messagesService.previewMessage(getCluster(clusterName), topicName, message))
+            .map(ResponseEntity::ok)
     ).doOnEach(sig -> audit(context, sig));
   }
 
