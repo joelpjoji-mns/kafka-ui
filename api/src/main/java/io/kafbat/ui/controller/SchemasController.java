@@ -10,11 +10,18 @@ import io.kafbat.ui.model.CompatibilityLevelDTO;
 import io.kafbat.ui.model.KafkaCluster;
 import io.kafbat.ui.model.NewSchemaSubjectDTO;
 import io.kafbat.ui.model.SchemaColumnsToSortDTO;
+import io.kafbat.ui.model.SchemaImpactConnectorDTO;
+import io.kafbat.ui.model.SchemaImpactDTO;
+import io.kafbat.ui.model.SchemaImpactReferenceDTO;
+import io.kafbat.ui.model.SchemaImpactTopicDTO;
+import io.kafbat.ui.model.SchemaReferenceDTO;
 import io.kafbat.ui.model.SchemaSubjectDTO;
 import io.kafbat.ui.model.SchemaSubjectsResponseDTO;
 import io.kafbat.ui.model.SortOrderDTO;
 import io.kafbat.ui.model.rbac.AccessContext;
 import io.kafbat.ui.model.rbac.permission.SchemaAction;
+import io.kafbat.ui.model.rbac.permission.TopicAction;
+import io.kafbat.ui.service.KafkaConnectService;
 import io.kafbat.ui.service.SchemaRegistryService;
 import io.kafbat.ui.service.SchemaRegistryService.SubjectWithCompatibilityLevel;
 import io.kafbat.ui.service.index.SchemasFilter;
@@ -27,7 +34,10 @@ import java.util.Optional;
 import javax.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.openapitools.jackson.nullable.JsonNullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
@@ -44,6 +54,12 @@ public class SchemasController extends AbstractController implements SchemasApi,
 
   private final SchemaRegistryService schemaRegistryService;
   private final ClustersProperties clustersProperties;
+  private KafkaConnectService kafkaConnectService;
+
+  @Autowired
+  public void setKafkaConnectService(KafkaConnectService kafkaConnectService) {
+    this.kafkaConnectService = kafkaConnectService;
+  }
 
   @Override
   protected KafkaCluster getCluster(String clusterName) {
@@ -207,6 +223,110 @@ public class SchemasController extends AbstractController implements SchemasApi,
             .map(kafkaSrMapper::toDto)
             .map(ResponseEntity::ok)
     ).doOnEach(sig -> audit(context, sig));
+  }
+
+  @Override
+  public Mono<ResponseEntity<SchemaImpactDTO>> getSchemaImpact(
+      String clusterName, String subject, Integer version, ServerWebExchange exchange) {
+    var context = AccessContext.builder()
+        .cluster(clusterName)
+        .schemaActions(subject, SchemaAction.VIEW)
+        .operationName("getSchemaImpact")
+        .operationParams(Map.of("subject", subject, "version", version))
+        .build();
+
+    return validateAccess(context).then(Mono.defer(() -> {
+      KafkaCluster cluster = super.getCluster(clusterName);
+      if (cluster.getSchemaRegistryClient() == null) {
+        return Mono.just(ResponseEntity.ok(new SchemaImpactDTO()
+            .available(false)
+            .unavailableReason("Schema Registry is not configured for this cluster")));
+      }
+      return schemaRegistryService.getSchemaSubjectByVersion(cluster, subject, version)
+          .flatMap(schema -> toSchemaImpact(clusterName, cluster, schema))
+          .map(ResponseEntity::ok);
+    })).doOnEach(sig -> audit(context, sig));
+  }
+
+  private Mono<SchemaImpactDTO> toSchemaImpact(String clusterName,
+                                                KafkaCluster cluster,
+                                                SubjectWithCompatibilityLevel schema) {
+    SchemaSubjectDTO schemaDto = kafkaSrMapper.toDto(schema);
+    List<SchemaReferenceDTO> references = schemaDto.getReferences();
+    schemaDto.setReferences(List.of());
+
+    return toImpactReferences(clusterName, references)
+        .flatMap(impactReferences -> {
+          String topic = schema.getTopic();
+          if (topic == null) {
+            return Mono.just(availableImpact(schemaDto, List.of(), impactReferences, List.of()));
+          }
+          return isTopicAccessible(clusterName, topic)
+              .flatMap(topicAccessible -> {
+                if (!topicAccessible) {
+                  schemaDto.setTopic(JsonNullable.undefined());
+                  return Mono.just(availableImpact(schemaDto, List.of(), impactReferences, List.of()));
+                }
+                return kafkaConnectService.getTopicConnectors(cluster, topic)
+                    .filterWhen(connector ->
+                        accessControlService.isConnectAccessible(connector.getConnect(), clusterName))
+                    .map(this::toImpactConnector)
+                    .collectList()
+                    .map(connectors -> availableImpact(
+                        schemaDto,
+                        List.of(new SchemaImpactTopicDTO().name(topic)),
+                        impactReferences,
+                        connectors
+                    ));
+              });
+        });
+  }
+
+  private Mono<List<SchemaImpactReferenceDTO>> toImpactReferences(
+      String clusterName,
+      List<SchemaReferenceDTO> references) {
+    return Flux.fromIterable(references == null ? List.of() : references)
+        .concatMap(reference -> isSchemaAccessible(clusterName, reference.getSubject())
+            .map(accessible -> new SchemaImpactReferenceDTO()
+                .name(reference.getName())
+                .subject(reference.getSubject())
+                .version(reference.getVersion())
+                .accessible(accessible)))
+        .collectList();
+  }
+
+  private Mono<Boolean> isSchemaAccessible(String clusterName, String subject) {
+    return validateAccess(AccessContext.builder()
+        .cluster(clusterName)
+        .schemaActions(subject, SchemaAction.VIEW)
+        .build()).thenReturn(true).onErrorReturn(AccessDeniedException.class, false);
+  }
+
+  private Mono<Boolean> isTopicAccessible(String clusterName, String topic) {
+    return validateAccess(AccessContext.builder()
+        .cluster(clusterName)
+        .topicActions(topic, TopicAction.VIEW)
+        .build()).thenReturn(true).onErrorReturn(AccessDeniedException.class, false);
+  }
+
+  private SchemaImpactDTO availableImpact(SchemaSubjectDTO schema,
+                                          List<SchemaImpactTopicDTO> topics,
+                                          List<SchemaImpactReferenceDTO> references,
+                                          List<SchemaImpactConnectorDTO> connectors) {
+    return new SchemaImpactDTO()
+        .available(true)
+        .schema(schema)
+        .topics(topics)
+        .references(references)
+        .connectors(connectors);
+  }
+
+  private SchemaImpactConnectorDTO toImpactConnector(
+      io.kafbat.ui.model.FullConnectorInfoDTO connector) {
+    return new SchemaImpactConnectorDTO()
+        .connect(connector.getConnect())
+        .name(connector.getName())
+        .topics(connector.getTopics());
   }
 
   @Override
