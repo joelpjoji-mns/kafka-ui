@@ -36,6 +36,10 @@ abstract class AbstractEmitter implements java.util.function.Consumer<FluxSink<T
     messagesProcessing.sendPhase(sink, name);
   }
 
+  protected void prepareForLiveTailing() {
+    messagesProcessing.prepareForLiveTailing();
+  }
+
   protected void sendConsuming(FluxSink<TopicMessageEventDTO> sink, PolledRecords records) {
     messagesProcessing.sentConsumingInfo(sink, records);
   }
