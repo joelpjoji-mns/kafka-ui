@@ -32,11 +32,28 @@ class MessagesProcessing {
 
   private final ConsumerRecordDeserializer deserializer;
   private final Predicate<TopicMessageDTO> filter;
-  private final boolean ascendingSortBeforeSend;
-  private final @Nullable Integer limit;
+  private boolean ascendingSortBeforeSend;
+  private @Nullable Integer limit;
+
+  static MessagesProcessing create(
+      ConsumerRecordDeserializer deserializer,
+      Predicate<TopicMessageDTO> filter,
+      boolean ascendingSortBeforeSend,
+      @Nullable Integer limit) {
+    MessagesProcessing processing = new MessagesProcessing(deserializer, filter);
+    processing.ascendingSortBeforeSend = ascendingSortBeforeSend;
+    processing.limit = limit;
+    return processing;
+  }
 
   boolean limitReached() {
     return limit != null && sentMessages >= limit;
+  }
+
+  void prepareForLiveTailing() {
+    ascendingSortBeforeSend = true;
+    limit = null;
+    sentMessages = 0;
   }
 
   void send(FluxSink<TopicMessageEventDTO> sink,
