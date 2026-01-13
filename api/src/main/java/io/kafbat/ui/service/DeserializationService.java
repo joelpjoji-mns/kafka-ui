@@ -100,6 +100,17 @@ public class DeserializationService implements Closeable {
     );
   }
 
+  @Nullable
+  public SchemaDescription getSchemaForSerialize(KafkaCluster cluster,
+                                                 String topic,
+                                                 Serde.Target serdeType,
+                                                 String serdeName) {
+    return getSerdesFor(cluster)
+        .serdeForName(serdeName)
+        .flatMap(serde -> serde.getSchema(topic, serdeType))
+        .orElse(null);
+  }
+
   public ConsumerRecordDeserializer deserializerFor(KafkaCluster cluster,
                                                     String topic,
                                                     @Nullable String keySerdeName,
