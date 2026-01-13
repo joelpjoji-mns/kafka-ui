@@ -114,8 +114,7 @@ public class KafkaConnectService {
     );
   }
 
-  public Flux<FullConnectorInfoDTO> getAllConnectors(final KafkaCluster cluster,
-                                                     @Nullable final String search, Boolean fts) {
+  Flux<InternalConnectorInfo> getAllConnectorInfos(final KafkaCluster cluster) {
     return getConnects(cluster, false)
         .flatMap(connect ->
             getConnectorsWithErrorsSuppress(cluster, connect.getName())
@@ -131,7 +130,13 @@ public class KafkaConnectService {
                           ).map(i -> checkConsumerGroup(cluster, i))
                         )
                 )
-        ).map(kafkaConnectMapper::fullConnectorInfo)
+        );
+  }
+
+  public Flux<FullConnectorInfoDTO> getAllConnectors(final KafkaCluster cluster,
+                                                     @Nullable final String search, Boolean fts) {
+    return getAllConnectorInfos(cluster)
+        .map(kafkaConnectMapper::fullConnectorInfo)
         .collectList()
         .map(lst -> filterConnectors(lst, search, fts))
         .flatMapMany(Flux::fromIterable);
