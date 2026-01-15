@@ -19,13 +19,20 @@ import io.kafbat.ui.exception.ValidationException;
 import io.kafbat.ui.model.ConsumerPosition;
 import io.kafbat.ui.model.CreateTopicMessageDTO;
 import io.kafbat.ui.model.KafkaCluster;
+import io.kafbat.ui.model.MessageFieldValidationDTO;
+import io.kafbat.ui.model.MessageSchemaEvidenceDTO;
+import io.kafbat.ui.model.MessageValidationPreviewDTO;
+import io.kafbat.ui.model.MessageValidationStatusDTO;
 import io.kafbat.ui.model.PollingModeDTO;
 import io.kafbat.ui.model.SmartFilterTestExecutionDTO;
 import io.kafbat.ui.model.SmartFilterTestExecutionResultDTO;
 import io.kafbat.ui.model.TopicMessageDTO;
 import io.kafbat.ui.model.TopicMessageEventDTO;
+import io.kafbat.ui.serde.api.SchemaDescription;
+import io.kafbat.ui.serde.api.Serde;
 import io.kafbat.ui.serdes.ConsumerRecordDeserializer;
 import io.kafbat.ui.serdes.ProducerRecordCreator;
+import io.kafbat.ui.serdes.builtin.sr.SchemaRegistrySerde;
 import io.kafbat.ui.util.KafkaClientSslPropertiesUtil;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -61,6 +68,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
+import org.openapitools.jackson.nullable.JsonNullable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -74,8 +82,8 @@ public class MessagesService {
 
   private static final long SALT_FOR_HASHING = ThreadLocalRandom.current().nextLong();
 
-  private static final int DEFAULT_MAX_PAGE_SIZE = 500;
-  private static final int DEFAULT_PAGE_SIZE = 100;
+  private static final int DEFAULT_MAX_PAGE_SIZE = 5_000;
+  private static final int DEFAULT_PAGE_SIZE = 500;
   private static final int DEFAULT_UPLOAD_MESSAGE_LIMIT = 1_000;
   private static final int MAX_UPLOAD_MESSAGE_LIMIT = 10_000;
   private static final int MAX_PRODUCER_REQUEST_BYTES = Integer.MAX_VALUE;
@@ -91,26 +99,27 @@ public class MessagesService {
   private final int maxPageSize;
   private final int defaultPageSize;
 
-  private final Cache<String, Predicate<TopicMessageDTO>> registeredFilters = CacheBuilder.newBuilder()
-      .maximumSize(PollingCursorsStorage.MAX_SIZE)
-      .build();
+  private final Cache<String, Predicate<TopicMessageDTO>> registeredFilters =
+      CacheBuilder.newBuilder().maximumSize(PollingCursorsStorage.MAX_SIZE).build();
 
   private final PollingCursorsStorage cursorsStorage = new PollingCursorsStorage();
 
-  public MessagesService(AdminClientService adminClientService,
-                         DeserializationService deserializationService,
-                         ConsumerGroupService consumerGroupService,
-                         ClustersProperties properties) {
+  public MessagesService(
+      AdminClientService adminClientService,
+      DeserializationService deserializationService,
+      ConsumerGroupService consumerGroupService,
+      ClustersProperties properties) {
     this.adminClientService = adminClientService;
     this.deserializationService = deserializationService;
     this.consumerGroupService = consumerGroupService;
 
-    var pollingProps = Optional.ofNullable(properties.getPolling())
-        .orElseGet(ClustersProperties.PollingProperties::new);
-    this.maxPageSize = Optional.ofNullable(pollingProps.getMaxPageSize())
-        .orElse(DEFAULT_MAX_PAGE_SIZE);
-    this.defaultPageSize = Optional.ofNullable(pollingProps.getDefaultPageSize())
-        .orElse(DEFAULT_PAGE_SIZE);
+    var pollingProps =
+        Optional.ofNullable(properties.getPolling())
+            .orElseGet(ClustersProperties.PollingProperties::new);
+    this.maxPageSize =
+        Optional.ofNullable(pollingProps.getMaxPageSize()).orElse(DEFAULT_MAX_PAGE_SIZE);
+    this.defaultPageSize =
+        Optional.ofNullable(pollingProps.getDefaultPageSize()).orElse(DEFAULT_PAGE_SIZE);
   }
 
   public enum DownloadFormat {
@@ -136,8 +145,7 @@ public class MessagesService {
     }
   }
 
-  public record DownloadResult(byte[] content, String mediaType, String fileName) {
-  }
+  public record DownloadResult(byte[] content, String mediaType, String fileName) {}
 
   public enum UploadParseMode {
     FILE_PER_MESSAGE,
@@ -192,124 +200,318 @@ public class MessagesService {
     }
   }
 
-  public record UploadSourceFile(String fileName, byte[] content) {
-  }
+  public record UploadSourceFile(String fileName, byte[] content) {}
 
-  public record UploadMessagesOptions(UploadParseMode parseMode,
-                                      UploadPartitionStrategy partitionStrategy,
-                                      UploadKeyMode keyMode,
-                                      @Nullable Integer selectedPartition,
-                                      List<Integer> targetPartitions,
-                                      @Nullable String keySerde,
-                                      @Nullable String valueSerde,
-                                      @Nullable String headersJson,
-                                      boolean includeMetadataHeaders,
-                                      boolean dryRun,
-                                      @Nullable Integer messageLimit) {
-  }
+  public record UploadMessagesOptions(
+      UploadParseMode parseMode,
+      UploadPartitionStrategy partitionStrategy,
+      UploadKeyMode keyMode,
+      @Nullable Integer selectedPartition,
+      List<Integer> targetPartitions,
+      @Nullable String keySerde,
+      @Nullable String valueSerde,
+      @Nullable String headersJson,
+      boolean includeMetadataHeaders,
+      boolean dryRun,
+      @Nullable Integer messageLimit) {}
 
-  public record UploadMessagesFileResult(String fileName,
-                                         int extractedEntries,
-                                         int parsedMessages) {
-  }
+  public record UploadMessagesFileResult(
+      String fileName, int extractedEntries, int parsedMessages) {}
 
-  public record UploadMessagePreview(String sourceFile,
-                                     String entryName,
-                                     @Nullable Integer partition,
-                                     @Nullable String key,
-                                     int valueBytes,
-                                     String valuePreview) {
-  }
+  public record UploadMessagePreview(
+      String sourceFile,
+      String entryName,
+      @Nullable Integer partition,
+      @Nullable String key,
+      int valueBytes,
+      String valuePreview) {}
 
-  public record UploadMessagesResult(boolean dryRun,
-                                     int filesReceived,
-                                     int entriesRead,
-                                     int messagesParsed,
-                                     int messagesProduced,
-                                     int failures,
-                                     List<UploadMessagesFileResult> files,
-                                     List<UploadMessagePreview> previews,
-                                     List<String> errors) {
-  }
+  public record UploadMessagesResult(
+      boolean dryRun,
+      int filesReceived,
+      int entriesRead,
+      int messagesParsed,
+      int messagesProduced,
+      int failures,
+      List<UploadMessagesFileResult> files,
+      List<UploadMessagePreview> previews,
+      List<String> errors) {}
 
-  private record UploadCandidate(String sourceFile,
-                                 String entryName,
-                                 @Nullable String key,
-                                 String value,
-                                 int sourceIndex) {
-  }
+  private record UploadCandidate(
+      String sourceFile, String entryName, @Nullable String key, String value, int sourceIndex) {}
 
   private Mono<TopicDescription> withExistingTopic(KafkaCluster cluster, String topicName) {
-    return adminClientService.get(cluster)
+    return adminClientService
+        .get(cluster)
         .flatMap(client -> client.describeTopic(topicName))
         .switchIfEmpty(Mono.error(new TopicNotFoundException()));
   }
 
-  public static SmartFilterTestExecutionResultDTO execSmartFilterTest(SmartFilterTestExecutionDTO execData) {
+  public static SmartFilterTestExecutionResultDTO execSmartFilterTest(
+      SmartFilterTestExecutionDTO execData) {
     Predicate<TopicMessageDTO> predicate;
     try {
       predicate = MessageFilters.celScriptFilter(execData.getFilterCode());
     } catch (Exception e) {
       log.info("Smart filter '{}' compilation error", execData.getFilterCode(), e);
-      return new SmartFilterTestExecutionResultDTO()
-          .error("Compilation error : " + e.getMessage());
+      return new SmartFilterTestExecutionResultDTO().error("Compilation error : " + e.getMessage());
     }
     try {
-      var result = predicate.test(
-          new TopicMessageDTO()
-              .key(execData.getKey())
-              .value(execData.getValue())
-              .headers(execData.getHeaders())
-              .offset(execData.getOffset())
-              .partition(execData.getPartition())
-              .timestamp(
-                  Optional.ofNullable(execData.getTimestampMs())
-                      .map(ts -> OffsetDateTime.ofInstant(Instant.ofEpochMilli(ts), ZoneOffset.UTC))
-                      .orElse(null))
-      );
-      return new SmartFilterTestExecutionResultDTO()
-          .result(result);
+      var result =
+          predicate.test(
+              new TopicMessageDTO()
+                  .key(execData.getKey())
+                  .value(execData.getValue())
+                  .headers(execData.getHeaders())
+                  .offset(execData.getOffset())
+                  .partition(execData.getPartition())
+                  .timestamp(
+                      Optional.ofNullable(execData.getTimestampMs())
+                          .map(
+                              ts ->
+                                  OffsetDateTime.ofInstant(
+                                      Instant.ofEpochMilli(ts), ZoneOffset.UTC))
+                          .orElse(null)));
+      return new SmartFilterTestExecutionResultDTO().result(result);
     } catch (Exception e) {
       log.info("Smart filter {} execution error", execData, e);
-      return new SmartFilterTestExecutionResultDTO()
-          .error("Execution error : " + e.getMessage());
+      return new SmartFilterTestExecutionResultDTO().error("Execution error : " + e.getMessage());
     }
   }
 
-  public Mono<Void> deleteTopicMessages(KafkaCluster cluster, String topicName,
-                                        List<Integer> partitionsToInclude) {
+  public Mono<Void> deleteTopicMessages(
+      KafkaCluster cluster, String topicName, List<Integer> partitionsToInclude) {
     return withExistingTopic(cluster, topicName)
-        .flatMap(td ->
-            offsetsForDeletion(cluster, topicName, partitionsToInclude)
-                .flatMap(offsets ->
-                    adminClientService.get(cluster).flatMap(ac -> ac.deleteRecords(offsets))));
+        .flatMap(
+            td ->
+                offsetsForDeletion(cluster, topicName, partitionsToInclude)
+                    .flatMap(
+                        offsets ->
+                            adminClientService
+                                .get(cluster)
+                                .flatMap(ac -> ac.deleteRecords(offsets))));
   }
 
-  private Mono<Map<TopicPartition, Long>> offsetsForDeletion(KafkaCluster cluster, String topicName,
-                                                             List<Integer> partitionsToInclude) {
-    return adminClientService.get(cluster).flatMap(ac ->
-        ac.listTopicOffsets(topicName, OffsetSpec.earliest(), true)
-            .zipWith(ac.listTopicOffsets(topicName, OffsetSpec.latest(), true),
-                (start, end) ->
-                    end.entrySet().stream()
-                        .filter(e -> partitionsToInclude.isEmpty()
-                            || partitionsToInclude.contains(e.getKey().partition()))
-                        // we only need non-empty partitions (where start offset != end offset)
-                        .filter(entry -> !entry.getValue().equals(start.get(entry.getKey())))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
-    );
+  private Mono<Map<TopicPartition, Long>> offsetsForDeletion(
+      KafkaCluster cluster, String topicName, List<Integer> partitionsToInclude) {
+    return adminClientService
+        .get(cluster)
+        .flatMap(
+            ac ->
+                ac.listTopicOffsets(topicName, OffsetSpec.earliest(), true)
+                    .zipWith(
+                        ac.listTopicOffsets(topicName, OffsetSpec.latest(), true),
+                        (start, end) ->
+                            end.entrySet().stream()
+                                .filter(
+                                    e ->
+                                        partitionsToInclude.isEmpty()
+                                            || partitionsToInclude.contains(e.getKey().partition()))
+                                // we only need non-empty partitions (where start offset != end
+                                // offset)
+                                .filter(
+                                    entry -> !entry.getValue().equals(start.get(entry.getKey())))
+                                .collect(
+                                    Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
   }
 
-  public Mono<RecordMetadata> sendMessage(KafkaCluster cluster, String topic,
-                                          CreateTopicMessageDTO msg) {
+  public Mono<RecordMetadata> sendMessage(
+      KafkaCluster cluster, String topic, CreateTopicMessageDTO msg) {
     return withExistingTopic(cluster, topic)
         .publishOn(Schedulers.boundedElastic())
         .flatMap(desc -> sendMessageImpl(cluster, desc, msg));
   }
 
-  private Mono<RecordMetadata> sendMessageImpl(KafkaCluster cluster,
-                                               TopicDescription topicDescription,
-                                               CreateTopicMessageDTO msg) {
+  public Mono<MessageValidationPreviewDTO> previewMessage(
+      KafkaCluster cluster, String topic, CreateTopicMessageDTO msg) {
+    return withExistingTopic(cluster, topic)
+        .publishOn(Schedulers.boundedElastic())
+        .map(desc -> previewMessageImpl(cluster, desc, msg));
+  }
+
+  private MessageValidationPreviewDTO previewMessageImpl(
+      KafkaCluster cluster, TopicDescription topicDescription, CreateTopicMessageDTO msg) {
+    String keySerdeName = serdeName(msg.getKeySerde());
+    String valueSerdeName = serdeName(msg.getValueSerde());
+
+    if (msg.getPartition() != null
+        && msg.getPartition() > topicDescription.partitions().size() - 1) {
+      return invalidPreview(keySerdeName, valueSerdeName, "Invalid partition");
+    }
+
+    if (keySerdeName == null || valueSerdeName == null) {
+      String error = "Select both key and value serdes before validating the message";
+      return new MessageValidationPreviewDTO()
+          .canSerialize(false)
+          .errors(List.of(error))
+          .key(
+              keySerdeName == null
+                  ? invalidField(null, "Select a key serde before validating the message")
+                  : skippedField(keySerdeName))
+          .value(
+              valueSerdeName == null
+                  ? invalidField(null, "Select a value serde before validating the message")
+                  : skippedField(valueSerdeName));
+    }
+
+    try {
+      ProducerRecordCreator producerRecordCreator =
+          deserializationService.producerRecordCreator(
+              cluster,
+              topicDescription.name(),
+              keySerdeName,
+              valueSerdeName,
+              msg.getKeySerdeProperties(),
+              msg.getValueSerdeProperties());
+      ProducerRecord<byte[], byte[]> record =
+          producerRecordCreator.create(
+              topicDescription.name(),
+              msg.getPartition(),
+              msg.getKey().orElse(null),
+              msg.getValue().orElse(null),
+              msg.getHeaders());
+      SchemaDescription keySchema =
+          deserializationService.getSchemaForSerialize(
+              cluster, topicDescription.name(), Serde.Target.KEY, keySerdeName);
+      SchemaDescription valueSchema =
+          deserializationService.getSchemaForSerialize(
+              cluster, topicDescription.name(), Serde.Target.VALUE, valueSerdeName);
+
+      return new MessageValidationPreviewDTO()
+          .canSerialize(true)
+          .errors(List.of())
+          .key(
+              validatedField(
+                  keySerdeName,
+                  msg.getKey().orElse(null),
+                  record.key(),
+                  keySchema,
+                  msg.getKeySerdeProperties()))
+          .value(
+              validatedField(
+                  valueSerdeName,
+                  msg.getValue().orElse(null),
+                  record.value(),
+                  valueSchema,
+                  msg.getValueSerdeProperties()));
+    } catch (Exception e) {
+      return invalidPreview(keySerdeName, valueSerdeName, previewError(e));
+    }
+  }
+
+  private MessageValidationPreviewDTO invalidPreview(
+      @Nullable String keySerdeName, @Nullable String valueSerdeName, String error) {
+    return new MessageValidationPreviewDTO()
+        .canSerialize(false)
+        .errors(List.of(error))
+        .key(invalidField(keySerdeName, error))
+        .value(invalidField(valueSerdeName, error));
+  }
+
+  private MessageFieldValidationDTO validatedField(
+      String serdeName,
+      @Nullable String value,
+      @Nullable byte[] serializedValue,
+      @Nullable SchemaDescription schema,
+      @Nullable Map<String, Object> serdeProperties) {
+    if (value == null) {
+      return skippedField(serdeName);
+    }
+
+    String explicitSubject = explicitSchemaSubject(serdeProperties);
+    MessageSchemaEvidenceDTO schemaEvidence = schemaEvidence(schema, explicitSubject);
+    boolean hasSchemaEvidence =
+        schemaEvidence != null
+            || (SchemaRegistrySerde.NAME.equals(serdeName) && explicitSubject != null);
+
+    MessageFieldValidationDTO result =
+        new MessageFieldValidationDTO()
+            .serde(serdeName)
+            .status(
+                hasSchemaEvidence
+                    ? MessageValidationStatusDTO.VALIDATED
+                    : MessageValidationStatusDTO.SERIALIZED)
+            .errors(List.of());
+    if (serializedValue != null) {
+      result.serializedBytes((long) serializedValue.length);
+    }
+    if (schemaEvidence != null) {
+      result.schema(schemaEvidence);
+    }
+    return result;
+  }
+
+  private MessageFieldValidationDTO skippedField(@Nullable String serdeName) {
+    return new MessageFieldValidationDTO()
+        .serde(serdeName)
+        .status(MessageValidationStatusDTO.SKIPPED)
+        .errors(List.of());
+  }
+
+  private MessageFieldValidationDTO invalidField(@Nullable String serdeName, String error) {
+    return new MessageFieldValidationDTO()
+        .serde(serdeName)
+        .status(MessageValidationStatusDTO.INVALID)
+        .errors(List.of(error));
+  }
+
+  @Nullable
+  private static String serdeName(@Nullable JsonNullable<String> serde) {
+    if (serde == null || !serde.isPresent()) {
+      return null;
+    }
+    String name = serde.get();
+    return name == null || name.isBlank() ? null : name;
+  }
+
+  @Nullable
+  private static String explicitSchemaSubject(@Nullable Map<String, Object> serdeProperties) {
+    if (serdeProperties == null) {
+      return null;
+    }
+    Object subject = serdeProperties.get(SchemaRegistrySerde.SUBJECT_PARAMETER_NAME);
+    return subject instanceof String name && !name.isBlank() ? name : null;
+  }
+
+  @Nullable
+  private static MessageSchemaEvidenceDTO schemaEvidence(
+      @Nullable SchemaDescription schema, @Nullable String explicitSubject) {
+    if (explicitSubject != null) {
+      return new MessageSchemaEvidenceDTO().subject(explicitSubject);
+    }
+    if (schema == null) {
+      return null;
+    }
+
+    Map<String, Object> properties = schema.getAdditionalProperties();
+    return new MessageSchemaEvidenceDTO()
+        .subject(stringProperty(properties, "subject"))
+        .id(integerProperty(properties, "schemaId"))
+        .version(stringProperty(properties, "latestVersion"))
+        .type(stringProperty(properties, "type"));
+  }
+
+  @Nullable
+  private static String stringProperty(Map<String, Object> properties, String name) {
+    Object value = properties.get(name);
+    return value == null ? null : value.toString();
+  }
+
+  @Nullable
+  private static Integer integerProperty(Map<String, Object> properties, String name) {
+    Object value = properties.get(name);
+    return value instanceof Number number ? number.intValue() : null;
+  }
+
+  private static String previewError(Exception error) {
+    String message = error.getMessage();
+    return message == null || message.isBlank()
+        ? "The selected serdes could not serialize this message"
+        : message;
+  }
+
+  private Mono<RecordMetadata> sendMessageImpl(
+      KafkaCluster cluster, TopicDescription topicDescription, CreateTopicMessageDTO msg) {
     if (msg.getPartition() != null
         && msg.getPartition() > topicDescription.partitions().size() - 1) {
       return Mono.error(new ValidationException("Invalid partition"));
@@ -321,38 +523,39 @@ public class MessagesService {
             msg.getKeySerde().get(),
             msg.getValueSerde().get(),
             msg.getKeySerdeProperties(),
-            msg.getValueSerdeProperties()
-        );
+            msg.getValueSerdeProperties());
 
     try (KafkaProducer<byte[], byte[]> producer = createProducer(cluster, Map.of())) {
-      ProducerRecord<byte[], byte[]> producerRecord = producerRecordCreator.create(
-          topicDescription.name(),
-          msg.getPartition(),
-          msg.getKey().orElse(null),
-          msg.getValue().orElse(null),
-          msg.getHeaders()
-      );
+      ProducerRecord<byte[], byte[]> producerRecord =
+          producerRecordCreator.create(
+              topicDescription.name(),
+              msg.getPartition(),
+              msg.getKey().orElse(null),
+              msg.getValue().orElse(null),
+              msg.getHeaders());
       CompletableFuture<RecordMetadata> cf = new CompletableFuture<>();
-      producer.send(producerRecord, (metadata, exception) -> {
-        if (exception != null) {
-          cf.completeExceptionally(exception);
-        } else {
-          cf.complete(metadata);
-        }
-      });
+      producer.send(
+          producerRecord,
+          (metadata, exception) -> {
+            if (exception != null) {
+              cf.completeExceptionally(exception);
+            } else {
+              cf.complete(metadata);
+            }
+          });
       return Mono.fromFuture(cf);
     } catch (Throwable e) {
       return Mono.error(e);
     }
   }
 
-  public static KafkaProducer<byte[], byte[]> createProducer(KafkaCluster cluster,
-                                                             Map<String, Object> additionalProps) {
+  public static KafkaProducer<byte[], byte[]> createProducer(
+      KafkaCluster cluster, Map<String, Object> additionalProps) {
     return createProducer(cluster.getOriginalProperties(), additionalProps);
   }
 
-  public static KafkaProducer<byte[], byte[]> createProducer(ClustersProperties.Cluster cluster,
-                                                             Map<String, Object> additionalProps) {
+  public static KafkaProducer<byte[], byte[]> createProducer(
+      ClustersProperties.Cluster cluster, Map<String, Object> additionalProps) {
     Properties properties = new Properties();
     KafkaClientSslPropertiesUtil.addKafkaSslProperties(cluster.getSsl(), properties);
     properties.putAll(cluster.getProperties());
@@ -366,57 +569,80 @@ public class MessagesService {
     return new KafkaProducer<>(properties);
   }
 
-  public Flux<TopicMessageEventDTO> loadMessages(KafkaCluster cluster,
-                                                 String topic,
-                                                 ConsumerPosition consumerPosition,
-                                                 @Nullable List<String> containsStringFilters,
-                                                 @Nullable String filterId,
-                                                 @Nullable Integer limit,
-                                                 @Nullable String keySerde,
-                                                 @Nullable String valueSerde) {
+  public Flux<TopicMessageEventDTO> loadMessages(
+      KafkaCluster cluster,
+      String topic,
+      ConsumerPosition consumerPosition,
+      @Nullable List<String> containsStringFilters,
+      @Nullable String filterId,
+      @Nullable Integer limit,
+      @Nullable String keySerde,
+      @Nullable String valueSerde) {
     return loadMessages(
         cluster,
         topic,
         deserializationService.deserializerFor(cluster, topic, keySerde, valueSerde),
         consumerPosition,
         getMsgFilter(containsStringFilters, filterId),
-        fixPageSize(limit)
-    );
+        fixPageSize(limit));
   }
 
-  public Flux<TopicMessageEventDTO> loadMessages(KafkaCluster cluster, String topic, String cursorId) {
-    Cursor cursor = cursorsStorage.getCursor(cursorId)
-        .orElseThrow(() -> new ValidationException("Next page cursor not found. Maybe it was evicted from cache."));
+  public Flux<TopicMessageEventDTO> loadMessages(
+      KafkaCluster cluster, String topic, String cursorId) {
+    Cursor cursor =
+        cursorsStorage
+            .getCursor(cursorId)
+            .orElseThrow(
+                () ->
+                    new ValidationException(
+                        "Next page cursor not found. Maybe it was evicted from cache."));
     return loadMessages(
         cluster,
         topic,
         cursor.deserializer(),
         cursor.consumerPosition(),
         cursor.filter(),
-        fixPageSize(cursor.limit())
-    );
+        fixPageSize(cursor.limit()));
   }
 
-  private Flux<TopicMessageEventDTO> loadMessages(KafkaCluster cluster,
-                                                  String topic,
-                                                  ConsumerRecordDeserializer deserializer,
-                                                  ConsumerPosition consumerPosition,
-                                                  Predicate<TopicMessageDTO> filter,
-                                                  int limit) {
+  private Flux<TopicMessageEventDTO> loadMessages(
+      KafkaCluster cluster,
+      String topic,
+      ConsumerRecordDeserializer deserializer,
+      ConsumerPosition consumerPosition,
+      Predicate<TopicMessageDTO> filter,
+      int limit) {
     return withExistingTopic(cluster, topic)
         .flux()
         .publishOn(Schedulers.boundedElastic())
         .flatMap(td -> loadMessagesImpl(cluster, deserializer, consumerPosition, filter, limit));
   }
 
-  public Mono<byte[]> downloadLastMessagesAsZip(KafkaCluster cluster,
-                                                String topic,
-                                                int limit,
-                                                List<Integer> partitions,
-                                                @Nullable String containsStringFilter,
-                                                @Nullable String smartFilterId,
-                                                @Nullable String keySerde,
-                                                @Nullable String valueSerde) {
+  public Flux<TopicMessageEventDTO> filterMessagesByTimestampUpperBound(
+      Flux<TopicMessageEventDTO> events, @Nullable Long timestampTo) {
+    if (timestampTo == null) {
+      return events;
+    }
+    return events.filter(event -> isEventWithinTimestampUpperBound(event, timestampTo));
+  }
+
+  static boolean isEventWithinTimestampUpperBound(
+      TopicMessageEventDTO event, long timestampTo) {
+    if (event.getType() != TopicMessageEventDTO.TypeEnum.MESSAGE) {
+      return true;
+    }
+    return event.getMessage() != null && matchesTimestampUpperBound(event.getMessage(), timestampTo);
+  }
+
+  public Mono<byte[]> downloadLastMessagesAsZip(
+      KafkaCluster cluster,
+      String topic,
+      int limit,
+      List<Integer> partitions,
+      @Nullable String containsStringFilter,
+      @Nullable String smartFilterId,
+      @Nullable String keySerde,
+      @Nullable String valueSerde) {
     return downloadMessagesAsZip(
         cluster,
         topic,
@@ -430,87 +656,111 @@ public class MessagesService {
         null,
         null,
         null,
-        DownloadFormat.TEXT
-    );
+        DownloadFormat.TEXT);
   }
 
-  public Mono<byte[]> downloadMessagesAsZip(KafkaCluster cluster,
-                                            String topic,
-                                            int limit,
-                                            List<Integer> partitions,
-                                            @Nullable String containsStringFilter,
-                                            @Nullable String smartFilterId,
-                                            @Nullable String keySerde,
-                                            @Nullable String valueSerde,
-                                            PollingModeDTO pollingMode,
-                                            @Nullable Long offset,
-                                            @Nullable Long timestamp,
-                                            @Nullable Long timestampTo,
-                                            DownloadFormat format) {
-    return collectDownloadMessages(cluster, topic, limit, partitions, containsStringFilter, smartFilterId,
-        keySerde, valueSerde, pollingMode, offset, timestamp, timestampTo)
+  public Mono<byte[]> downloadMessagesAsZip(
+      KafkaCluster cluster,
+      String topic,
+      int limit,
+      List<Integer> partitions,
+      @Nullable String containsStringFilter,
+      @Nullable String smartFilterId,
+      @Nullable String keySerde,
+      @Nullable String valueSerde,
+      PollingModeDTO pollingMode,
+      @Nullable Long offset,
+      @Nullable Long timestamp,
+      @Nullable Long timestampTo,
+      DownloadFormat format) {
+    return collectDownloadMessages(
+            cluster,
+            topic,
+            limit,
+            partitions,
+            toStringFilters(containsStringFilter),
+            smartFilterId,
+            keySerde,
+            valueSerde,
+            pollingMode,
+            offset,
+            timestamp,
+            timestampTo)
         .map(messages -> createMessagesZip(topic, messages, format));
   }
 
-  public Mono<DownloadResult> downloadMessages(KafkaCluster cluster,
-                                               String topic,
-                                               int limit,
-                                               List<Integer> partitions,
-                                               @Nullable String containsStringFilter,
-                                               @Nullable String smartFilterId,
-                                               @Nullable String keySerde,
-                                               @Nullable String valueSerde,
-                                               PollingModeDTO pollingMode,
-                                               @Nullable Long offset,
-                                               @Nullable Long timestamp,
-                                               @Nullable Long timestampTo,
-                                               DownloadFormat format) {
+  public Mono<DownloadResult> downloadMessages(
+      KafkaCluster cluster,
+      String topic,
+      int limit,
+      List<Integer> partitions,
+      @Nullable List<String> containsStringFilters,
+      @Nullable String smartFilterId,
+      @Nullable String keySerde,
+      @Nullable String valueSerde,
+      PollingModeDTO pollingMode,
+      @Nullable Long offset,
+      @Nullable Long timestamp,
+      @Nullable Long timestampTo,
+      DownloadFormat format) {
     String fileName = downloadFileName(topic, limit, pollingMode, format);
-    return collectDownloadMessages(cluster, topic, limit, partitions, containsStringFilter, smartFilterId,
-        keySerde, valueSerde, pollingMode, offset, timestamp, timestampTo)
-        .map(messages -> new DownloadResult(
-            serializeMessages(topic, messages, format),
-            mediaTypeFor(format),
-            fileName));
+    return collectDownloadMessages(
+            cluster,
+            topic,
+            limit,
+            partitions,
+            containsStringFilters,
+            smartFilterId,
+            keySerde,
+            valueSerde,
+            pollingMode,
+            offset,
+            timestamp,
+            timestampTo)
+        .map(
+            messages ->
+                new DownloadResult(
+                    serializeMessages(topic, messages, format), mediaTypeFor(format), fileName));
   }
 
-  private Mono<List<TopicMessageDTO>> collectDownloadMessages(KafkaCluster cluster,
-                                                              String topic,
-                                                              int limit,
-                                                              List<Integer> partitions,
-                                                              @Nullable String containsStringFilter,
-                                                              @Nullable String smartFilterId,
-                                                              @Nullable String keySerde,
-                                                              @Nullable String valueSerde,
-                                                              PollingModeDTO pollingMode,
-                                                              @Nullable Long offset,
-                                                              @Nullable Long timestamp,
-                                                              @Nullable Long timestampTo) {
+  private Mono<List<TopicMessageDTO>> collectDownloadMessages(
+      KafkaCluster cluster,
+      String topic,
+      int limit,
+      List<Integer> partitions,
+      @Nullable List<String> containsStringFilters,
+      @Nullable String smartFilterId,
+      @Nullable String keySerde,
+      @Nullable String valueSerde,
+      PollingModeDTO pollingMode,
+      @Nullable Long offset,
+      @Nullable Long timestamp,
+      @Nullable Long timestampTo) {
     if (limit < 1 || limit > maxPageSize) {
-      return Mono.error(new ValidationException(
-          "Download limit must be between 1 and " + maxPageSize));
+      return Mono.error(
+          new ValidationException("Download limit must be between 1 and " + maxPageSize));
     }
 
     return loadMessages(
-        cluster,
-        topic,
-        ConsumerPosition.create(pollingMode, topic, partitions, timestamp, offset),
-        toStringFilters(containsStringFilter),
-        smartFilterId,
-        limit,
-        keySerde,
-        valueSerde
-    )
+            cluster,
+            topic,
+            ConsumerPosition.create(pollingMode, topic, partitions, timestamp, offset),
+            Optional.ofNullable(containsStringFilters).orElse(List.of()),
+            smartFilterId,
+            limit,
+            keySerde,
+            valueSerde)
         .filter(event -> event.getType() == TopicMessageEventDTO.TypeEnum.MESSAGE)
         .map(TopicMessageEventDTO::getMessage)
         .filter(message -> matchesTimestampUpperBound(message, timestampTo))
         .collectList();
   }
 
-  public Mono<UploadMessagesResult> uploadMessages(KafkaCluster cluster,
-                                                   String topic,
-                                                   List<UploadSourceFile> files,
-                                                   UploadMessagesOptions options) {
+  public Mono<UploadMessagesResult> uploadMessages(
+      KafkaCluster cluster,
+      String topic,
+      List<UploadSourceFile> files,
+      UploadMessagesOptions options) {
     if (files.isEmpty()) {
       return Mono.error(new ValidationException("At least one upload file is required"));
     }
@@ -533,7 +783,8 @@ public class MessagesService {
     return safeZipName(topic) + "-last-" + limit + "-messages.zip";
   }
 
-  public String downloadFileName(String topic, int limit, PollingModeDTO mode, DownloadFormat format) {
+  public String downloadFileName(
+      String topic, int limit, PollingModeDTO mode, DownloadFormat format) {
     String base = safeZipName(topic) + "-" + mode.name().toLowerCase(Locale.ROOT) + "-" + limit;
     return switch (format) {
       case CSV -> base + "-messages.csv";
@@ -551,7 +802,8 @@ public class MessagesService {
     };
   }
 
-  static byte[] serializeMessages(String topic, List<TopicMessageDTO> messages, DownloadFormat format) {
+  static byte[] serializeMessages(
+      String topic, List<TopicMessageDTO> messages, DownloadFormat format) {
     return switch (format) {
       case CSV -> messagesToCsv(topic, messages).getBytes(StandardCharsets.UTF_8);
       case NDJSON -> messagesToNdjson(topic, messages).getBytes(StandardCharsets.UTF_8);
@@ -559,47 +811,53 @@ public class MessagesService {
     };
   }
 
-  private Flux<TopicMessageEventDTO> loadMessagesImpl(KafkaCluster cluster,
-                                                      ConsumerRecordDeserializer deserializer,
-                                                      ConsumerPosition consumerPosition,
-                                                      Predicate<TopicMessageDTO> filter,
-                                                      int limit) {
-    var emitter = switch (consumerPosition.pollingMode()) {
-      case TO_OFFSET, TO_TIMESTAMP, LATEST -> new BackwardEmitter(
-          () -> consumerGroupService.createConsumer(cluster,
-              Map.of(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, limit)),
-          consumerPosition,
-          limit,
-          deserializer,
-          filter,
-          cluster.getPollingSettings(),
-          cursorsStorage.createNewCursor(deserializer, consumerPosition, filter, limit)
-      );
-      case FROM_OFFSET, FROM_TIMESTAMP, EARLIEST -> new ForwardEmitter(
-          () -> consumerGroupService.createConsumer(cluster,
-              Map.of(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, limit)),
-          consumerPosition,
-          limit,
-          deserializer,
-          filter,
-          cluster.getPollingSettings(),
-          cursorsStorage.createNewCursor(deserializer, consumerPosition, filter, limit)
-      );
-      case TAILING -> new TailingEmitter(
-          () -> consumerGroupService.createConsumer(cluster),
-          consumerPosition,
-          deserializer,
-          filter,
-          cluster.getPollingSettings()
-      );
-    };
-    return Flux.create(emitter)
-        .map(throttleUiPublish(consumerPosition.pollingMode()));
+  private Flux<TopicMessageEventDTO> loadMessagesImpl(
+      KafkaCluster cluster,
+      ConsumerRecordDeserializer deserializer,
+      ConsumerPosition consumerPosition,
+      Predicate<TopicMessageDTO> filter,
+      int limit) {
+    var emitter =
+        switch (consumerPosition.pollingMode()) {
+          case TO_OFFSET, TO_TIMESTAMP, LATEST ->
+              new BackwardEmitter(
+                  () ->
+                      consumerGroupService.createConsumer(
+                          cluster, Map.of(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, limit)),
+                  consumerPosition,
+                  limit,
+                  deserializer,
+                  filter,
+                  cluster.getPollingSettings(),
+                  cursorsStorage.createNewCursor(deserializer, consumerPosition, filter, limit));
+          case FROM_OFFSET, FROM_TIMESTAMP, EARLIEST ->
+              new ForwardEmitter(
+                  () ->
+                      consumerGroupService.createConsumer(
+                          cluster, Map.of(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, limit)),
+                  consumerPosition,
+                  limit,
+                  deserializer,
+                  filter,
+                  cluster.getPollingSettings(),
+                  cursorsStorage.createNewCursor(deserializer, consumerPosition, filter, limit));
+          case TAILING ->
+              new TailingEmitter(
+                () -> consumerGroupService.createConsumer(
+                  cluster, Map.of(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, limit)),
+                  consumerPosition,
+                  deserializer,
+                  filter,
+                cluster.getPollingSettings(),
+                limit);
+        };
+    return Flux.create(emitter).map(throttleUiPublish(consumerPosition.pollingMode()));
   }
 
-  private Predicate<TopicMessageDTO> getMsgFilter(@Nullable List<String> containsStrFilters,
-                                                  @Nullable String smartFilterId) {
-    Predicate<TopicMessageDTO> messageFilter = MessageFilters.containsAllStringFilters(containsStrFilters);
+  private Predicate<TopicMessageDTO> getMsgFilter(
+      @Nullable List<String> containsStrFilters, @Nullable String smartFilterId) {
+    Predicate<TopicMessageDTO> messageFilter =
+        MessageFilters.containsAllStringFilters(containsStrFilters);
     if (smartFilterId != null) {
       var registered = registeredFilters.getIfPresent(smartFilterId);
       if (registered == null) {
@@ -622,7 +880,8 @@ public class MessagesService {
         return m;
       };
     }
-    // there is no need to throttle UI production rate for non-tailing modes, since max number of produced
+    // there is no need to throttle UI production rate for non-tailing modes, since max number of
+    // produced
     // messages is limited for them (with page size)
     return UnaryOperator.identity();
   }
@@ -635,38 +894,39 @@ public class MessagesService {
 
   public String registerMessageFilter(String celCode) {
     String saltedCode = celCode + SALT_FOR_HASHING;
-    String filterId = Hashing.sha256()
-        .hashString(saltedCode, Charsets.UTF_8)
-        .toString()
-        .substring(0, 8);
+    String filterId =
+        Hashing.sha256().hashString(saltedCode, Charsets.UTF_8).toString().substring(0, 8);
     if (registeredFilters.getIfPresent(filterId) == null) {
       registeredFilters.put(filterId, MessageFilters.celScriptFilter(celCode));
     }
     return filterId;
   }
 
-  private boolean matchesTimestampUpperBound(TopicMessageDTO message, @Nullable Long timestampTo) {
+  private static boolean matchesTimestampUpperBound(TopicMessageDTO message, @Nullable Long timestampTo) {
     if (timestampTo == null || message.getTimestamp() == null) {
       return true;
     }
     return !message.getTimestamp().toInstant().isAfter(Instant.ofEpochMilli(timestampTo));
   }
 
-  private static byte[] createMessagesZip(String topic, List<TopicMessageDTO> messages, DownloadFormat format) {
+  private static byte[] createMessagesZip(
+      String topic, List<TopicMessageDTO> messages, DownloadFormat format) {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-         ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream, StandardCharsets.UTF_8)) {
+        ZipOutputStream zipOutputStream =
+            new ZipOutputStream(outputStream, StandardCharsets.UTF_8)) {
 
       if (messages.isEmpty()) {
         zipOutputStream.putNextEntry(new ZipEntry("README.txt"));
-        zipOutputStream.write(("No messages were found for topic " + topic + ".")
-            .getBytes(StandardCharsets.UTF_8));
+        zipOutputStream.write(
+            ("No messages were found for topic " + topic + ".").getBytes(StandardCharsets.UTF_8));
         zipOutputStream.closeEntry();
       }
 
       String safeTopic = safeZipName(topic);
       for (TopicMessageDTO message : messages) {
         zipOutputStream.putNextEntry(new ZipEntry(messageFileName(message, safeTopic, format)));
-        zipOutputStream.write(messageContent(topic, message, format).getBytes(StandardCharsets.UTF_8));
+        zipOutputStream.write(
+            messageContent(topic, message, format).getBytes(StandardCharsets.UTF_8));
         zipOutputStream.closeEntry();
       }
 
@@ -677,43 +937,50 @@ public class MessagesService {
     }
   }
 
-  private UploadMessagesResult uploadMessagesImpl(KafkaCluster cluster,
-                                                  TopicDescription topicDescription,
-                                                  List<UploadSourceFile> files,
-                                                  UploadMessagesOptions options) {
+  private UploadMessagesResult uploadMessagesImpl(
+      KafkaCluster cluster,
+      TopicDescription topicDescription,
+      List<UploadSourceFile> files,
+      UploadMessagesOptions options) {
     ParsedUpload parsedUpload = parseUploadFiles(files, options);
     int messageLimit = resolveUploadMessageLimit(options.messageLimit());
     if (parsedUpload.candidates().size() > messageLimit) {
-      throw new ValidationException("Upload parsed " + parsedUpload.candidates().size()
-          + " messages, which is above the configured limit of " + messageLimit);
+      throw new ValidationException(
+          "Upload parsed "
+              + parsedUpload.candidates().size()
+              + " messages, which is above the configured limit of "
+              + messageLimit);
     }
 
     List<String> errors = new ArrayList<>();
-    List<UploadMessagePreview> previews = previews(topicDescription, parsedUpload.candidates(), options);
+    List<UploadMessagePreview> previews =
+        previews(topicDescription, parsedUpload.candidates(), options);
     int produced = 0;
 
     if (!options.dryRun()) {
-      ProducerRecordCreator producerRecordCreator = deserializationService.producerRecordCreator(
-          cluster,
-          topicDescription.name(),
-          options.keySerde(),
-          options.valueSerde(),
-          Map.of(),
-          Map.of()
-      );
+      ProducerRecordCreator producerRecordCreator =
+          deserializationService.producerRecordCreator(
+              cluster,
+              topicDescription.name(),
+              options.keySerde(),
+              options.valueSerde(),
+              Map.of(),
+              Map.of());
 
       try (KafkaProducer<byte[], byte[]> producer = createProducer(cluster, Map.of())) {
         int index = 0;
         for (UploadCandidate candidate : parsedUpload.candidates()) {
           try {
             Integer partition = resolveUploadPartition(topicDescription, options, index);
-            producer.send(producerRecordCreator.create(
-                topicDescription.name(),
-                partition,
-                candidate.key(),
-                candidate.value(),
-                uploadHeaders(candidate, options, index)
-            )).get();
+            producer
+                .send(
+                    producerRecordCreator.create(
+                        topicDescription.name(),
+                        partition,
+                        candidate.key(),
+                        candidate.value(),
+                        uploadHeaders(candidate, options, index)))
+                .get();
             produced++;
           } catch (Exception e) {
             errors.add(candidate.entryName() + ": " + e.getMessage());
@@ -732,16 +999,16 @@ public class MessagesService {
         errors.size(),
         parsedUpload.fileResults(),
         previews,
-        errors
-    );
+        errors);
   }
 
-  private record ParsedUpload(List<UploadCandidate> candidates,
-                              List<UploadMessagesFileResult> fileResults,
-                              int entriesRead) {
-  }
+  private record ParsedUpload(
+      List<UploadCandidate> candidates,
+      List<UploadMessagesFileResult> fileResults,
+      int entriesRead) {}
 
-  private ParsedUpload parseUploadFiles(List<UploadSourceFile> files, UploadMessagesOptions options) {
+  private ParsedUpload parseUploadFiles(
+      List<UploadSourceFile> files, UploadMessagesOptions options) {
     List<UploadCandidate> candidates = new ArrayList<>();
     List<UploadMessagesFileResult> fileResults = new ArrayList<>();
     int entriesRead = 0;
@@ -751,18 +1018,13 @@ public class MessagesService {
       List<UploadSourceFile> extractedFiles = extractFiles(file);
       entriesRead += extractedFiles.size();
       for (UploadSourceFile extractedFile : extractedFiles) {
-        candidates.addAll(parseUploadContent(
-            file.fileName(),
-            extractedFile.fileName(),
-            extractedFile.content(),
-            options
-        ));
+        candidates.addAll(
+            parseUploadContent(
+                file.fileName(), extractedFile.fileName(), extractedFile.content(), options));
       }
-      fileResults.add(new UploadMessagesFileResult(
-          file.fileName(),
-          extractedFiles.size(),
-          candidates.size() - before
-      ));
+      fileResults.add(
+          new UploadMessagesFileResult(
+              file.fileName(), extractedFiles.size(), candidates.size() - before));
     }
 
     return new ParsedUpload(candidates, fileResults, entriesRead);
@@ -774,16 +1036,19 @@ public class MessagesService {
     }
 
     List<UploadSourceFile> entries = new ArrayList<>();
-    try (ZipInputStream zipInputStream = new ZipInputStream(
-        new ByteArrayInputStream(file.content()), StandardCharsets.UTF_8)) {
-      for (ZipEntry entry = zipInputStream.getNextEntry(); entry != null; entry = zipInputStream.getNextEntry()) {
+    try (ZipInputStream zipInputStream =
+        new ZipInputStream(new ByteArrayInputStream(file.content()), StandardCharsets.UTF_8)) {
+      for (ZipEntry entry = zipInputStream.getNextEntry();
+          entry != null;
+          entry = zipInputStream.getNextEntry()) {
         if (!entry.isDirectory()) {
           entries.add(new UploadSourceFile(entry.getName(), zipInputStream.readAllBytes()));
         }
         zipInputStream.closeEntry();
       }
     } catch (IOException e) {
-      throw new ValidationException("Failed to read ZIP file " + file.fileName() + ": " + e.getMessage());
+      throw new ValidationException(
+          "Failed to read ZIP file " + file.fileName() + ": " + e.getMessage());
     }
     return entries;
   }
@@ -791,21 +1056,21 @@ public class MessagesService {
   private boolean isZip(UploadSourceFile file) {
     String lowerFileName = file.fileName().toLowerCase(Locale.ROOT);
     byte[] content = file.content();
-    return lowerFileName.endsWith(".zip") || (content.length > 3 && content[0] == 'P' && content[1] == 'K');
+    return lowerFileName.endsWith(".zip")
+        || (content.length > 3 && content[0] == 'P' && content[1] == 'K');
   }
 
-  private List<UploadCandidate> parseUploadContent(String sourceFile,
-                                                   String entryName,
-                                                   byte[] content,
-                                                   UploadMessagesOptions options) {
+  private List<UploadCandidate> parseUploadContent(
+      String sourceFile, String entryName, byte[] content, UploadMessagesOptions options) {
     String text = new String(content, StandardCharsets.UTF_8);
     String key = keyFor(sourceFile, entryName, options.keyMode());
-    List<String> values = switch (options.parseMode()) {
-      case FILE_PER_MESSAGE -> text.isEmpty() ? List.of() : List.of(text);
-      case TEXT_LINES -> text.lines().filter(line -> !line.isBlank()).toList();
-      case NDJSON -> parseNdjson(entryName, text);
-      case JSON_ARRAY -> parseJsonArray(entryName, text);
-    };
+    List<String> values =
+        switch (options.parseMode()) {
+          case FILE_PER_MESSAGE -> text.isEmpty() ? List.of() : List.of(text);
+          case TEXT_LINES -> text.lines().filter(line -> !line.isBlank()).toList();
+          case NDJSON -> parseNdjson(entryName, text);
+          case JSON_ARRAY -> parseJsonArray(entryName, text);
+        };
 
     List<UploadCandidate> candidates = new ArrayList<>();
     for (int i = 0; i < values.size(); i++) {
@@ -852,21 +1117,22 @@ public class MessagesService {
     }
   }
 
-  private List<UploadMessagePreview> previews(TopicDescription topicDescription,
-                                              List<UploadCandidate> candidates,
-                                              UploadMessagesOptions options) {
+  private List<UploadMessagePreview> previews(
+      TopicDescription topicDescription,
+      List<UploadCandidate> candidates,
+      UploadMessagesOptions options) {
     List<UploadMessagePreview> previews = new ArrayList<>();
     int previewCount = Math.min(10, candidates.size());
     for (int i = 0; i < previewCount; i++) {
       UploadCandidate candidate = candidates.get(i);
-      previews.add(new UploadMessagePreview(
-          candidate.sourceFile(),
-          candidate.entryName(),
-          resolveUploadPartition(topicDescription, options, i),
-          candidate.key(),
-          candidate.value().getBytes(StandardCharsets.UTF_8).length,
-          preview(candidate.value())
-      ));
+      previews.add(
+          new UploadMessagePreview(
+              candidate.sourceFile(),
+              candidate.entryName(),
+              resolveUploadPartition(topicDescription, options, i),
+              candidate.key(),
+              candidate.value().getBytes(StandardCharsets.UTF_8).length,
+              preview(candidate.value())));
     }
     return previews;
   }
@@ -884,9 +1150,8 @@ public class MessagesService {
     };
   }
 
-  private Map<String, String> uploadHeaders(UploadCandidate candidate,
-                                            UploadMessagesOptions options,
-                                            int index) {
+  private Map<String, String> uploadHeaders(
+      UploadCandidate candidate, UploadMessagesOptions options, int index) {
     Map<String, String> headers = new LinkedHashMap<>(parseUploadHeaders(options.headersJson()));
     if (options.includeMetadataHeaders()) {
       headers.put("kafbat-upload-file", candidate.sourceFile());
@@ -914,9 +1179,8 @@ public class MessagesService {
     }
   }
 
-  private Integer resolveUploadPartition(TopicDescription topicDescription,
-                                         UploadMessagesOptions options,
-                                         int messageIndex) {
+  private Integer resolveUploadPartition(
+      TopicDescription topicDescription, UploadMessagesOptions options, int messageIndex) {
     List<Integer> partitions = uploadTargetPartitions(topicDescription, options);
     return switch (options.partitionStrategy()) {
       case ANY -> null;
@@ -926,23 +1190,27 @@ public class MessagesService {
     };
   }
 
-  private List<Integer> uploadTargetPartitions(TopicDescription topicDescription, UploadMessagesOptions options) {
-    Set<Integer> actualPartitions = topicDescription.partitions()
-        .stream()
-        .map(partition -> partition.partition())
-        .collect(Collectors.toSet());
+  private List<Integer> uploadTargetPartitions(
+      TopicDescription topicDescription, UploadMessagesOptions options) {
+    Set<Integer> actualPartitions =
+        topicDescription.partitions().stream()
+            .map(partition -> partition.partition())
+            .collect(Collectors.toSet());
     if (actualPartitions.isEmpty()) {
       throw new ValidationException("Topic has no partitions");
     }
 
-    List<Integer> requested = options.partitionStrategy() == UploadPartitionStrategy.SELECTED
-        ? List.of(Optional.ofNullable(options.selectedPartition())
-            .orElseThrow(() -> new ValidationException("Selected partition is required")))
-        : options.targetPartitions();
+    List<Integer> requested =
+        options.partitionStrategy() == UploadPartitionStrategy.SELECTED
+            ? List.of(
+                Optional.ofNullable(options.selectedPartition())
+                    .orElseThrow(() -> new ValidationException("Selected partition is required")))
+            : options.targetPartitions();
 
-    List<Integer> partitions = requested == null || requested.isEmpty()
-        ? actualPartitions.stream().sorted().toList()
-        : requested.stream().distinct().sorted().toList();
+    List<Integer> partitions =
+        requested == null || requested.isEmpty()
+            ? actualPartitions.stream().sorted().toList()
+            : requested.stream().distinct().sorted().toList();
 
     if (!actualPartitions.containsAll(partitions)) {
       throw new ValidationException("One or more requested partitions do not exist");
@@ -953,7 +1221,8 @@ public class MessagesService {
   private int resolveUploadMessageLimit(@Nullable Integer messageLimit) {
     int resolved = Optional.ofNullable(messageLimit).orElse(DEFAULT_UPLOAD_MESSAGE_LIMIT);
     if (resolved < 1 || resolved > MAX_UPLOAD_MESSAGE_LIMIT) {
-      throw new ValidationException("Upload message limit must be between 1 and " + MAX_UPLOAD_MESSAGE_LIMIT);
+      throw new ValidationException(
+          "Upload message limit must be between 1 and " + MAX_UPLOAD_MESSAGE_LIMIT);
     }
     return resolved;
   }
@@ -967,13 +1236,20 @@ public class MessagesService {
     }
   }
 
-  private static String messageFileName(TopicMessageDTO message, String safeTopic, DownloadFormat format) {
+  private static String messageFileName(
+      TopicMessageDTO message, String safeTopic, DownloadFormat format) {
     String extension = format == DownloadFormat.JSON ? ".json" : ".txt";
-    return message.getOffset() + "Offset-" + message.getPartition() + "Partition-" + safeTopic + "-Topic"
+    return message.getOffset()
+        + "Offset-"
+        + message.getPartition()
+        + "Partition-"
+        + safeTopic
+        + "-Topic"
         + extension;
   }
 
-  private static String messageContent(String topic, TopicMessageDTO message, DownloadFormat format) {
+  private static String messageContent(
+      String topic, TopicMessageDTO message, DownloadFormat format) {
     return switch (format) {
       case JSON -> messageJson(topic, message);
       case VALUE_ONLY -> nullToEmpty(message.getValue());
@@ -986,7 +1262,8 @@ public class MessagesService {
     exportedMessage.put("topic", topic);
     exportedMessage.put("partition", message.getPartition());
     exportedMessage.put("offset", message.getOffset());
-    exportedMessage.put("timestamp", message.getTimestamp() == null ? null : message.getTimestamp().toString());
+    exportedMessage.put(
+        "timestamp", message.getTimestamp() == null ? null : message.getTimestamp().toString());
     exportedMessage.put("timestampType", message.getTimestampType());
     exportedMessage.put("key", message.getKey());
     exportedMessage.put("headers", Optional.ofNullable(message.getHeaders()).orElse(Map.of()));
@@ -1000,7 +1277,9 @@ public class MessagesService {
 
   private static String messageJson(String topic, TopicMessageDTO message) {
     try {
-      return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(messageToMap(topic, message));
+      return OBJECT_MAPPER
+          .writerWithDefaultPrettyPrinter()
+          .writeValueAsString(messageToMap(topic, message));
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Failed to serialize Kafka message", e);
     }
@@ -1019,9 +1298,20 @@ public class MessagesService {
     return builder.toString();
   }
 
-  private static final List<String> CSV_COLUMNS = List.of(
-      "topic", "partition", "offset", "timestamp", "timestampType",
-      "key", "value", "headers", "keySize", "valueSize", "keySerde", "valueSerde");
+  private static final List<String> CSV_COLUMNS =
+      List.of(
+          "topic",
+          "partition",
+          "offset",
+          "timestamp",
+          "timestampType",
+          "key",
+          "value",
+          "headers",
+          "keySize",
+          "valueSize",
+          "keySerde",
+          "valueSerde");
 
   private static String messagesToCsv(String topic, List<TopicMessageDTO> messages) {
     StringBuilder builder = new StringBuilder();
@@ -1053,8 +1343,8 @@ public class MessagesService {
   }
 
   private static String csvEscape(String value) {
-    boolean mustQuote = value.contains(",") || value.contains("\"")
-        || value.contains("\n") || value.contains("\r");
+    boolean mustQuote =
+        value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r");
     if (!mustQuote) {
       return value;
     }
@@ -1067,9 +1357,12 @@ public class MessagesService {
     text.append("Partition: ").append(message.getPartition()).append(System.lineSeparator());
     text.append("Offset: ").append(message.getOffset()).append(System.lineSeparator());
     text.append("Timestamp: ").append(message.getTimestamp()).append(System.lineSeparator());
-    text.append("Timestamp type: ").append(message.getTimestampType()).append(System.lineSeparator());
+    text.append("Timestamp type: ")
+        .append(message.getTimestampType())
+        .append(System.lineSeparator());
     text.append("Key: ").append(nullToEmpty(message.getKey())).append(System.lineSeparator());
-    text.append("Headers: ").append(Optional.ofNullable(message.getHeaders()).orElse(Map.of()))
+    text.append("Headers: ")
+        .append(Optional.ofNullable(message.getHeaders()).orElse(Map.of()))
         .append(System.lineSeparator());
     text.append("Key size: ").append(message.getKeySize()).append(System.lineSeparator());
     text.append("Value size: ").append(message.getValueSize()).append(System.lineSeparator());
@@ -1086,5 +1379,4 @@ public class MessagesService {
     String safe = value.replaceAll(INVALID_ZIP_ENTRY_CHARS, "_").replace("..", "_").trim();
     return safe.isEmpty() ? "topic" : safe;
   }
-
 }
