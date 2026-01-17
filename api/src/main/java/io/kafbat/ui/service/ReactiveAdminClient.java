@@ -586,7 +586,13 @@ public class ReactiveAdminClient implements Closeable {
             groupId,
             offsets.entrySet().stream()
                 .collect(toMap(Map.Entry::getKey, e -> new OffsetAndMetadata(e.getValue()))))
-        .all());
+        .all())
+        .onErrorResume(GroupNotEmptyException.class,
+            th -> Mono.error(new ValidationException(
+                "Consumer group became active before its offsets could be reset")))
+        .onErrorResume(GroupSubscribedToTopicException.class,
+            th -> Mono.error(new ValidationException(
+                "Consumer group became active before its offsets could be reset")));
   }
 
   /**
