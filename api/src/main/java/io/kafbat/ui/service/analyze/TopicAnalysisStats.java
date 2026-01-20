@@ -12,8 +12,9 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.datasketches.hll.HllSketch;
-import org.apache.datasketches.quantiles.DoublesSketch;
-import org.apache.datasketches.quantiles.UpdateDoublesSketch;
+import org.apache.datasketches.quantiles.QuantilesDoublesSketch;
+import org.apache.datasketches.quantiles.UpdatableQuantilesDoublesSketch;
+import org.apache.datasketches.quantilescommon.QuantileSearchCriteria;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.utils.Bytes;
 
@@ -41,7 +42,7 @@ class TopicAnalysisStats {
     long sum = 0;
     Long min;
     Long max;
-    final UpdateDoublesSketch sizeSketch = DoublesSketch.builder().build();
+    final UpdatableQuantilesDoublesSketch sizeSketch = QuantilesDoublesSketch.builder().build();
 
     void apply(int len) {
       sum += len;
@@ -56,11 +57,15 @@ class TopicAnalysisStats {
           .min(min)
           .max(max)
           .avg((long) (((double) sum) / sizeSketch.getN()))
-          .prctl50((long) sizeSketch.getQuantile(0.5))
-          .prctl75((long) sizeSketch.getQuantile(0.75))
-          .prctl95((long) sizeSketch.getQuantile(0.95))
-          .prctl99((long) sizeSketch.getQuantile(0.99))
-          .prctl999((long) sizeSketch.getQuantile(0.999));
+          .prctl50(quantile(0.5))
+          .prctl75(quantile(0.75))
+          .prctl95(quantile(0.95))
+          .prctl99(quantile(0.99))
+          .prctl999(quantile(0.999));
+    }
+
+    private long quantile(double fraction) {
+      return (long) sizeSketch.getQuantile(fraction, QuantileSearchCriteria.INCLUSIVE);
     }
   }
 
