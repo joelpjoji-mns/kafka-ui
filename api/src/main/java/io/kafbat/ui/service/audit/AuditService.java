@@ -229,6 +229,14 @@ public class AuditService implements Closeable {
         && writer.isTopicWritingEnabled();
   }
 
+  public Optional<String> getAuditTopic(KafkaCluster cluster) {
+    var writer = auditWriters.get(cluster.getName());
+    if (writer == null || !writer.isTopicWritingEnabled() || writer.targetTopic() == null) {
+      return Optional.empty();
+    }
+    return Optional.of(writer.targetTopic());
+  }
+
   public void audit(AccessContext acxt, Signal<?> sig) {
     if (auditWriters.isEmpty()) {
       return;
