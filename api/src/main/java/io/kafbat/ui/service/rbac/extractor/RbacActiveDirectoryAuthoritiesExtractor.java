@@ -16,7 +16,8 @@ import org.springframework.security.ldap.userdetails.LdapAuthoritiesPopulator;
 @Slf4j
 public class RbacActiveDirectoryAuthoritiesExtractor implements LdapAuthoritiesPopulator {
 
-  private final DefaultActiveDirectoryAuthoritiesPopulator populator = new DefaultActiveDirectoryAuthoritiesPopulator();
+  private final DefaultActiveDirectoryAuthoritiesPopulator populator =
+      new DefaultActiveDirectoryAuthoritiesPopulator();
   private final AccessControlService acs;
 
   public RbacActiveDirectoryAuthoritiesExtractor(ApplicationContext context) {
@@ -24,24 +25,26 @@ public class RbacActiveDirectoryAuthoritiesExtractor implements LdapAuthoritiesP
   }
 
   @Override
-  public Collection<? extends GrantedAuthority> getGrantedAuthorities(DirContextOperations userData, String username) {
-    var adGroups = populator.getGrantedAuthorities(userData, username)
-        .stream()
-        .map(GrantedAuthority::getAuthority)
-        .peek(group -> log.trace("Found AD group [{}] for user [{}]", group, username))
-        .collect(Collectors.toSet());
+  public Collection<? extends GrantedAuthority> getGrantedAuthorities(
+      DirContextOperations userData, String username) {
+    var adGroups =
+        populator.getGrantedAuthorities(userData, username).stream()
+            .map(GrantedAuthority::getAuthority)
+            .peek(group -> log.trace("Found AD group [{}] for user [{}]", group, username))
+            .collect(Collectors.toSet());
 
-    return acs.getRoles()
-        .stream()
-        .filter(r -> r.getSubjects()
-            .stream()
-            .filter(subject -> subject.getProvider().equals(Provider.LDAP_AD))
-            .anyMatch(subject -> switch (subject.getType()) {
-                  case "user" -> subject.matches(username);
-                  case "group" ->  adGroups.stream().anyMatch(subject::matches);
-                  default -> false;
-                })
-        )
+    return acs.getRoles().stream()
+        .filter(
+            r ->
+                r.getSubjects().stream()
+                    .filter(subject -> subject.getProvider().equals(Provider.LDAP_AD))
+                    .anyMatch(
+                        subject ->
+                            switch (subject.getType()) {
+                              case "user" -> subject.matches(username);
+                              case "group" -> adGroups.stream().anyMatch(subject::matches);
+                              default -> false;
+                            }))
         .map(Role::getName)
         .peek(role -> log.trace("Mapped role [{}] for user [{}]", role, username))
         .map(SimpleGrantedAuthority::new)
