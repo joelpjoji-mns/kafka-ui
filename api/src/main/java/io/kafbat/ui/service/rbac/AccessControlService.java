@@ -54,16 +54,12 @@ public class AccessControlService {
 
   private static final String ACCESS_DENIED = "Access denied";
 
-  @Nullable
-  private final InMemoryReactiveClientRegistrationRepository clientRegistrationRepository;
+  @Nullable private final InMemoryReactiveClientRegistrationRepository clientRegistrationRepository;
   private final RoleBasedAccessControlProperties properties;
   private final Environment environment;
 
-  @Getter
-  private boolean rbacEnabled = false;
-  @Getter
-  private Set<ProviderAuthorityExtractor> oauthExtractors = Collections.emptySet();
-
+  @Getter private boolean rbacEnabled = false;
+  @Getter private Set<ProviderAuthorityExtractor> oauthExtractors = Collections.emptySet();
 
   @PostConstruct
   public void init() {
@@ -73,35 +69,44 @@ public class AccessControlService {
     }
     rbacEnabled = true;
 
-    this.oauthExtractors = properties.getRoles()
-        .stream()
-        .map(role -> role.getSubjects()
-            .stream()
-            .map(Subject::getProvider)
-            .distinct()
-            .map(provider -> switch (provider) {
-                  case OAUTH_COGNITO -> new CognitoAuthorityExtractor();
-                  case OAUTH_GOOGLE -> new GoogleAuthorityExtractor();
-                  case OAUTH_GITHUB -> new GithubAuthorityExtractor();
-                  case OAUTH -> new OauthAuthorityExtractor();
-                  default -> null;
-                }
-            ).filter(Objects::nonNull)
-            .collect(Collectors.toSet()))
-        .flatMap(Set::stream)
-        .collect(Collectors.toSet());
+    this.oauthExtractors =
+        properties.getRoles().stream()
+            .map(
+                role ->
+                    role.getSubjects().stream()
+                        .map(Subject::getProvider)
+                        .distinct()
+                        .map(
+                            provider ->
+                                switch (provider) {
+                                  case OAUTH_COGNITO -> new CognitoAuthorityExtractor();
+                                  case OAUTH_GOOGLE -> new GoogleAuthorityExtractor();
+                                  case OAUTH_GITHUB -> new GithubAuthorityExtractor();
+                                  case OAUTH -> new OauthAuthorityExtractor();
+                                  default -> null;
+                                })
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet()))
+            .flatMap(Set::stream)
+            .collect(Collectors.toSet());
 
-    boolean hasRolesConfigured = !properties.getRoles().isEmpty() || properties.getDefaultRole() != null;
+    boolean hasRolesConfigured =
+        !properties.getRoles().isEmpty() || properties.getDefaultRole() != null;
     if (hasRolesConfigured
         && "oauth2".equalsIgnoreCase(environment.getProperty("auth.type"))
-        && (clientRegistrationRepository == null || !clientRegistrationRepository.iterator().hasNext())) {
-      log.error("Roles are configured but no authentication methods are present. Authentication might fail.");
+        && (clientRegistrationRepository == null
+            || !clientRegistrationRepository.iterator().hasNext())) {
+      log.error(
+          "Roles are configured but no authentication methods are present. Authentication might"
+              + " fail.");
     }
   }
 
   public Mono<Void> validateAccess(AccessContext context) {
     return isAccessible(context)
-        .flatMap(allowed -> allowed ? Mono.empty() : Mono.error(new AccessDeniedException(ACCESS_DENIED)))
+        .flatMap(
+            allowed ->
+                allowed ? Mono.empty() : Mono.error(new AccessDeniedException(ACCESS_DENIED)))
         .then();
   }
 
@@ -119,11 +124,15 @@ public class AccessControlService {
     return context.isAccessible(getUserPermissions(user, context.cluster()));
   }
 
-  private List<Permission> getUserPermissions(AuthenticatedUser user, @Nullable String clusterName) {
-    List<Role> filteredRoles = properties.getRoles()
-            .stream()
+  private List<Permission> getUserPermissions(
+      AuthenticatedUser user, @Nullable String clusterName) {
+    List<Role> filteredRoles =
+        properties.getRoles().stream()
             .filter(filterRole(user))
-            .filter(role -> clusterName == null || role.getClusters().stream().anyMatch(clusterName::equalsIgnoreCase))
+            .filter(
+                role ->
+                    clusterName == null
+                        || role.getClusters().stream().anyMatch(clusterName::equalsIgnoreCase))
             .toList();
 
     // if no roles are found, check if default role is set
@@ -131,9 +140,7 @@ public class AccessControlService {
       return properties.getDefaultRole().getPermissions();
     }
 
-    return filteredRoles.stream()
-            .flatMap(role -> role.getPermissions().stream())
-            .toList();
+    return filteredRoles.stream().flatMap(role -> role.getPermissions().stream()).toList();
   }
 
   public static Mono<AuthenticatedUser> getUser() {
@@ -146,11 +153,11 @@ public class AccessControlService {
 
   private boolean isClusterAccessible(String clusterName, AuthenticatedUser user) {
     Assert.isTrue(StringUtils.isNotEmpty(clusterName), "cluster value is empty");
-    boolean isAccessible = properties.getRoles()
-        .stream()
-        .filter(filterRole(user))
-        .anyMatch(role -> role.getClusters().stream().anyMatch(clusterName::equalsIgnoreCase));
-    
+    boolean isAccessible =
+        properties.getRoles().stream()
+            .filter(filterRole(user))
+            .anyMatch(role -> role.getClusters().stream().anyMatch(clusterName::equalsIgnoreCase));
+
     return isAccessible || properties.getDefaultRole() != null;
   }
 
@@ -161,21 +168,29 @@ public class AccessControlService {
     return getUser().map(u -> isClusterAccessible(cluster.getName(), u));
   }
 
-  public Mono<List<InternalTopic>> filterViewableTopics(List<InternalTopic> topics, String clusterName) {
+  public Mono<List<InternalTopic>> filterViewableTopics(
+      List<InternalTopic> topics, String clusterName) {
     if (!rbacEnabled) {
       return Mono.just(topics);
     }
     return getUser()
-        .map(user -> topics.stream()
-            .filter(topic ->
-                isAccessible(
-                    user,
-                    AccessContext.builder()
-                        .cluster(clusterName)
-                        .topicActions(topic.getName(), TopicAction.VIEW)
-                        .build()
-                )
-            ).toList());
+        .map(
+            user ->
+                topics.stream()
+                    .filter(
+                        topic ->
+                            isAccessible(
+                                user,
+                                AccessContext.builder()
+                                    .cluster(clusterName)
+                                    .topicActions(topic.getName(), TopicAction.VIEW)
+                                    .build()))
+                    .toList());
+  }
+
+  public Mono<Boolean> isTopicAccessible(String topicName, String clusterName, TopicAction action) {
+    return isAccessible(
+        AccessContext.builder().cluster(clusterName).topicActions(topicName, action).build());
   }
 
   public Mono<Boolean> isConsumerGroupAccessible(String groupId, String clusterName) {
@@ -183,8 +198,7 @@ public class AccessControlService {
         AccessContext.builder()
             .cluster(clusterName)
             .consumerGroupActions(groupId, ConsumerGroupAction.VIEW)
-            .build()
-    );
+            .build());
   }
 
   public Mono<Boolean> isSchemaAccessible(String schema, String clusterName) {
@@ -192,8 +206,7 @@ public class AccessControlService {
         AccessContext.builder()
             .cluster(clusterName)
             .schemaActions(schema, SchemaAction.VIEW)
-            .build()
-    );
+            .build());
   }
 
   public Mono<Boolean> isConnectAccessible(ConnectDTO dto, String clusterName) {
@@ -204,32 +217,35 @@ public class AccessControlService {
     if (!rbacEnabled) {
       return Mono.just(true);
     }
-    return getUser().map(user -> {
-      List<Permission> permissions = getUserPermissions(user, clusterName);
-      // Check direct connect VIEW permission
-      boolean hasConnectPermission = AccessContext.builder()
-          .cluster(clusterName)
-          .connectActions(connectName, ConnectAction.VIEW)
-          .build()
-          .isAccessible(permissions);
-      if (hasConnectPermission) {
-        return true;
-      }
-      // Also show connect if user has any connector VIEW permission for it
-      return permissions.stream()
-          .filter(p -> p.getResource() == Resource.CONNECTOR)
-          .filter(p -> p.getParsedActions().contains(ConnectorAction.VIEW))
-          .anyMatch(p -> connectorPermissionMatchesConnect(p.getValue(), connectName));
-    });
+    return getUser()
+        .map(
+            user -> {
+              List<Permission> permissions = getUserPermissions(user, clusterName);
+              // Check direct connect VIEW permission
+              boolean hasConnectPermission =
+                  AccessContext.builder()
+                      .cluster(clusterName)
+                      .connectActions(connectName, ConnectAction.VIEW)
+                      .build()
+                      .isAccessible(permissions);
+              if (hasConnectPermission) {
+                return true;
+              }
+              // Also show connect if user has any connector VIEW permission for it
+              return permissions.stream()
+                  .filter(p -> p.getResource() == Resource.CONNECTOR)
+                  .filter(p -> p.getParsedActions().contains(ConnectorAction.VIEW))
+                  .anyMatch(p -> connectorPermissionMatchesConnect(p.getValue(), connectName));
+            });
   }
 
-  public Mono<Boolean> isConnectorAccessible(String connectName, String connectorName, String clusterName) {
+  public Mono<Boolean> isConnectorAccessible(
+      String connectName, String connectorName, String clusterName) {
     return isAccessible(
         AccessContext.builder()
             .cluster(clusterName)
             .connectorActions(connectName, connectorName, ConnectorAction.VIEW)
-            .build()
-    );
+            .build());
   }
 
   public List<Role> getRoles() {
@@ -248,9 +264,9 @@ public class AccessControlService {
   }
 
   /**
-   * Checks if a connector permission value matches a given connect name.
-   * Connector permission values are in format "connectPattern/connectorPattern".
-   * This extracts the connect pattern and checks if connectName matches it.
+   * Checks if a connector permission value matches a given connect name. Connector permission
+   * values are in format "connectPattern/connectorPattern". This extracts the connect pattern and
+   * checks if connectName matches it.
    */
   private boolean connectorPermissionMatchesConnect(String permissionValue, String connectName) {
     if (permissionValue == null || !permissionValue.contains("/")) {
@@ -259,5 +275,4 @@ public class AccessControlService {
     String connectPattern = permissionValue.substring(0, permissionValue.indexOf('/'));
     return Pattern.compile(connectPattern).matcher(connectName).matches();
   }
-
 }
