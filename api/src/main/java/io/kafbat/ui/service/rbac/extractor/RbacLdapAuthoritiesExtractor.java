@@ -18,32 +18,34 @@ public class RbacLdapAuthoritiesExtractor extends NestedLdapAuthoritiesPopulator
 
   private final AccessControlService acs;
 
-  public RbacLdapAuthoritiesExtractor(ApplicationContext context,
-                                      BaseLdapPathContextSource contextSource,
-                                      String groupFilterSearchBase) {
+  public RbacLdapAuthoritiesExtractor(
+      ApplicationContext context,
+      BaseLdapPathContextSource contextSource,
+      String groupFilterSearchBase) {
     super(contextSource, groupFilterSearchBase);
     this.acs = context.getBean(AccessControlService.class);
   }
 
   @Override
   protected Set<GrantedAuthority> getAdditionalRoles(DirContextOperations user, String username) {
-    var ldapGroups = super.getGroupMembershipRoles(user.getNameInNamespace(), username)
-        .stream()
-        .map(GrantedAuthority::getAuthority)
-        .peek(group -> log.trace("Found LDAP group [{}] for user [{}]", group, username))
-        .collect(Collectors.toSet());
+    var ldapGroups =
+        super.getGroupMembershipRoles(user.getNameInNamespace(), username).stream()
+            .map(GrantedAuthority::getAuthority)
+            .peek(group -> log.trace("Found LDAP group [{}] for user [{}]", group, username))
+            .collect(Collectors.toSet());
 
-    return acs.getRoles()
-        .stream()
-        .filter(r -> r.getSubjects()
-            .stream()
-            .filter(subject -> subject.getProvider().equals(Provider.LDAP))
-            .anyMatch(subject -> switch (subject.getType()) {
-                  case "user" -> subject.matches(username);
-                  case "group" -> ldapGroups.stream().anyMatch(subject::matches);
-                  default -> false;
-                })
-        )
+    return acs.getRoles().stream()
+        .filter(
+            r ->
+                r.getSubjects().stream()
+                    .filter(subject -> subject.getProvider().equals(Provider.LDAP))
+                    .anyMatch(
+                        subject ->
+                            switch (subject.getType()) {
+                              case "user" -> subject.matches(username);
+                              case "group" -> ldapGroups.stream().anyMatch(subject::matches);
+                              default -> false;
+                            }))
         .map(Role::getName)
         .peek(role -> log.trace("Mapped role [{}] for user [{}]", role, username))
         .map(SimpleGrantedAuthority::new)
