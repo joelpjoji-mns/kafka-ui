@@ -12,7 +12,7 @@ public class GithubReleaseInfo {
   public static final String GITHUB_RELEASE_INFO_TIMEOUT = "github.release.info.timeout";
 
   private static final String GITHUB_LATEST_RELEASE_RETRIEVAL_URL =
-      "https://api.github.com/repos/kafbat/kafka-ui/releases/latest";
+      "https://api.github.com/repos/joelpjoji-mns/kafka-ui/releases/latest";
 
   public record GithubReleaseDto(String html_url, String tag_name, String published_at) {
 
