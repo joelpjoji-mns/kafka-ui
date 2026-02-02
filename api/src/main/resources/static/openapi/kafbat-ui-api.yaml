@@ -1,9 +1,6 @@
 openapi: 3.0.0
 info:
-  title: Kafbat UI Api Service
-  contact:
-    name: API Support
-    email: support@kafbat.io
+  title: Custom Kafka UI API
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
@@ -24,6 +21,10 @@ tags:
   - name: Authorization
   - name: Graphs
   - name: PrometheusExpose
+  - name: Operations Center
+  - name: Audit
+  - name: Topic Governance Advisor
+  - name: Record Explorer
 paths:
   /api/authorization:
     get:
@@ -314,6 +315,85 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateStreamAppAcl'
+  /api/clusters/{clusterName}/audit:
+    get:
+      operationId: getAuditTrail
+      summary: getAuditTrail
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          explode: false
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date-time
+          explode: false
+        - name: resource
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
+        - name: operation
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
+        - name: outcome
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - SUCCESS
+              - FAILURE
+          explode: false
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditTrailResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiNotFoundResponse'
+      tags:
+        - Audit
   /api/clusters/{clusterName}/brokers:
     get:
       operationId: getBrokers
@@ -659,6 +739,25 @@ paths:
             text/csv:
               schema:
                 type: string
+      tags:
+        - Kafka Connect
+  /api/clusters/{clusterName}/connectors/triage:
+    get:
+      operationId: getConnectorTriage
+      summary: getConnectorTriage
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectorTriageSnapshot'
       tags:
         - Kafka Connect
   /api/clusters/{clusterName}/connects:
@@ -1349,6 +1448,36 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ConsumerGroupOffsetsReset'
+  /api/clusters/{clusterName}/consumer-groups/{id}/offsets/preview:
+    post:
+      operationId: previewConsumerGroupOffsetsReset
+      summary: previewConsumerGroupOffsetsReset
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConsumerGroupOffsetsResetPreview'
+      tags:
+        - Consumer Groups
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsumerGroupOffsetsReset'
   /api/clusters/{clusterName}/consumer-groups/{id}/topics/{topicName}:
     delete:
       operationId: deleteConsumerGroupOffsets
@@ -1536,6 +1665,114 @@ paths:
                 $ref: '#/components/schemas/ClusterMetrics'
       tags:
         - Clusters
+  /api/clusters/{clusterName}/operations:
+    get:
+      operationId: getOperationsCenter
+      summary: getOperationsCenter
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+        - name: includeInternal
+          in: query
+          required: false
+          schema:
+            type: boolean
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationsCenterSnapshot'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiNotFoundResponse'
+      tags:
+        - Operations Center
+  /api/clusters/{clusterName}/record-explorer:
+    get:
+      operationId: searchRecords
+      summary: Search a bounded recent sample across visible topics
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+          explode: false
+        - name: topic
+          in: query
+          required: false
+          schema:
+            type: string
+          explode: false
+        - name: includeInternal
+          in: query
+          required: false
+          schema:
+            type: boolean
+          explode: false
+        - name: topicLimit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+        - name: perTopicSampleLimit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+        - name: resultLimit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordExplorerResponse'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      tags:
+        - Record Explorer
   /api/clusters/{clusterName}/schemas:
     post:
       operationId: createNewSchema
@@ -1922,6 +2159,36 @@ paths:
                 $ref: '#/components/schemas/ApiNotFoundResponse'
       tags:
         - Schemas
+  /api/clusters/{clusterName}/schemas/{subject}/versions/{version}/impact:
+    get:
+      operationId: getSchemaImpact
+      summary: getSchemaImpact
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: subject
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaImpact'
+      tags:
+        - Schemas
   /api/clusters/{clusterName}/stats:
     get:
       operationId: getClusterStats
@@ -1941,6 +2208,43 @@ paths:
                 $ref: '#/components/schemas/ClusterStats'
       tags:
         - Clusters
+  /api/clusters/{clusterName}/topic-governance:
+    get:
+      operationId: getTopicGovernanceReport
+      summary: getTopicGovernanceReport
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: includeInternal
+          in: query
+          required: false
+          schema:
+            type: boolean
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicGovernanceReport'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiNotFoundResponse'
+      tags:
+        - Topic Governance Advisor
   /api/clusters/{clusterName}/topics:
     get:
       operationId: getTopics
@@ -2438,6 +2742,73 @@ paths:
                   $ref: '#/components/schemas/ConsumerGroup'
       tags:
         - Consumer Groups
+  /api/clusters/{clusterName}/topics/{topicName}/data-profile:
+    get:
+      operationId: getTopicDataProfile
+      summary: getTopicDataProfile
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: topicName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: sampleLimit
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int32
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicDataProfile'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiNotFoundResponse'
+      tags:
+        - Topics
+  /api/clusters/{clusterName}/topics/{topicName}/developer-insights:
+    get:
+      operationId: getTopicDeveloperInsights
+      summary: Developer-ready operational report for a topic
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: topicName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TopicDeveloperInsights'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiNotFoundResponse'
+      tags:
+        - Topics
   /api/clusters/{clusterName}/topics/{topicName}/messages:
     get:
       operationId: getTopicMessages
@@ -2627,7 +2998,9 @@ paths:
           in: query
           required: false
           schema:
-            type: string
+            type: array
+            items:
+              type: string
           explode: false
         - name: smartFilterId
           in: query
@@ -2674,6 +3047,48 @@ paths:
                 $ref: '#/components/schemas/ApiNotFoundResponse'
       tags:
         - Messages
+  /api/clusters/{clusterName}/topics/{topicName}/messages/preview:
+    post:
+      operationId: previewTopicMessage
+      summary: Validate a topic message without producing it
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: topicName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageValidationPreview'
+        '400':
+          description: The server could not understand the request due to invalid syntax.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: The server cannot find the requested resource.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiNotFoundResponse'
+      tags:
+        - Messages
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTopicMessage'
   /api/clusters/{clusterName}/topics/{topicName}/messages/v2:
     get:
       operationId: getTopicMessagesV2
@@ -2733,6 +3148,13 @@ paths:
             format: int64
           explode: false
         - name: timestamp
+          in: query
+          required: false
+          schema:
+            type: integer
+            format: int64
+          explode: false
+        - name: timestampTo
           in: query
           required: false
           schema:
@@ -3214,6 +3636,8 @@ components:
                             type: string
                           clientSecret:
                             type: string
+                          clientAuthenticationMethod:
+                            type: string
                           clientName:
                             type: string
                           redirectUri:
@@ -3605,6 +4029,72 @@ components:
         errorMessage:
           type: string
           description: Contains error message if error = true
+    AuditTrailEvent:
+      type: object
+      required:
+        - timestamp
+        - operator
+        - resources
+        - operation
+        - outcome
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        operator:
+          type: string
+        resources:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditTrailResource'
+        operation:
+          type: string
+        outcome:
+          type: string
+          enum:
+            - SUCCESS
+            - FAILURE
+        error:
+          type: string
+    AuditTrailResource:
+      type: object
+      required:
+        - type
+        - alter
+        - accessType
+      properties:
+        type:
+          type: string
+        resourceId:
+          type: string
+        alter:
+          type: boolean
+        accessType:
+          type: array
+          items:
+            type: string
+    AuditTrailResponse:
+      type: object
+      required:
+        - status
+        - events
+        - truncated
+      properties:
+        status:
+          type: string
+          enum:
+            - AVAILABLE
+            - UNAVAILABLE
+        unavailableReason:
+          type: string
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditTrailEvent'
+        nextCursor:
+          type: string
+        truncated:
+          type: boolean
     AuthType:
       type: string
       enum:
@@ -4153,6 +4643,96 @@ components:
         - PAUSED
         - RESTARTING
         - UNASSIGNED
+    ConnectorTriageConnector:
+      type: object
+      required:
+        - connect
+        - name
+        - connectorState
+        - severity
+        - tasksCount
+        - failedTasksCount
+        - failedTasks
+      properties:
+        connect:
+          type: string
+        name:
+          type: string
+        connectorState:
+          $ref: '#/components/schemas/ConnectorState'
+        severity:
+          $ref: '#/components/schemas/ConnectorTriageSeverity'
+        tasksCount:
+          type: integer
+          format: int32
+        failedTasksCount:
+          type: integer
+          format: int32
+        failedTasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConnectorTriageTask'
+        traceExcerpt:
+          type: string
+    ConnectorTriageSeverity:
+      type: string
+      enum:
+        - HEALTHY
+        - WARNING
+        - CRITICAL
+    ConnectorTriageSnapshot:
+      type: object
+      required:
+        - collectedAtMs
+        - summary
+        - connectors
+      properties:
+        collectedAtMs:
+          type: integer
+          format: int64
+        summary:
+          $ref: '#/components/schemas/ConnectorTriageSummary'
+        connectors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConnectorTriageConnector'
+    ConnectorTriageSummary:
+      type: object
+      required:
+        - totalConnectors
+        - healthyConnectors
+        - warningConnectors
+        - criticalConnectors
+        - failedTasks
+      properties:
+        totalConnectors:
+          type: integer
+          format: int32
+        healthyConnectors:
+          type: integer
+          format: int32
+        warningConnectors:
+          type: integer
+          format: int32
+        criticalConnectors:
+          type: integer
+          format: int32
+        failedTasks:
+          type: integer
+          format: int32
+    ConnectorTriageTask:
+      type: object
+      required:
+        - id
+        - state
+      properties:
+        id:
+          type: integer
+          format: int32
+        state:
+          $ref: '#/components/schemas/ConnectorTaskStatus'
+        traceExcerpt:
+          type: string
     ConnectorType:
       type: string
       enum:
@@ -4219,6 +4799,13 @@ components:
           type: object
           additionalProperties:
             $ref: '#/components/schemas/ConsumerGroupTopicLag'
+    ConsumerGroupOffsetResetImpact:
+      type: string
+      enum:
+        - REPLAY
+        - SKIP
+        - NONE
+        - UNKNOWN
     ConsumerGroupOffsetsReset:
       type: object
       required:
@@ -4241,6 +4828,59 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PartitionOffset'
+        waitForInactive:
+          type: boolean
+          description: Wait up to 60 seconds for an active consumer group to become inactive before resetting offsets.
+    ConsumerGroupOffsetsResetPartitionPreview:
+      type: object
+      required:
+        - partition
+        - targetOffset
+        - logStartOffset
+        - logEndOffset
+        - impact
+        - targetAdjusted
+      properties:
+        partition:
+          type: integer
+          format: int32
+        currentCommittedOffset:
+          type: integer
+          format: int64
+        requestedOffset:
+          type: integer
+          format: int64
+        targetOffset:
+          type: integer
+          format: int64
+        logStartOffset:
+          type: integer
+          format: int64
+        logEndOffset:
+          type: integer
+          format: int64
+        impact:
+          $ref: '#/components/schemas/ConsumerGroupOffsetResetImpact'
+        affectedMessages:
+          type: integer
+          format: int64
+        targetAdjusted:
+          type: boolean
+    ConsumerGroupOffsetsResetPreview:
+      type: object
+      required:
+        - topic
+        - resetType
+        - partitions
+      properties:
+        topic:
+          type: string
+        resetType:
+          $ref: '#/components/schemas/ConsumerGroupOffsetsResetType'
+        partitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsumerGroupOffsetsResetPartitionPreview'
     ConsumerGroupOffsetsResetType:
       type: string
       enum:
@@ -4657,6 +5297,26 @@ components:
           type: string
         password:
           type: string
+    MessageFieldValidation:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          allOf:
+            - $ref: '#/components/schemas/MessageValidationStatus'
+          description: VALIDATED means the selected serde supplied schema metadata and serialization succeeded. SERIALIZED means serialization succeeded but no schema metadata was available.
+        serde:
+          type: string
+        serializedBytes:
+          type: integer
+          format: int64
+        schema:
+          $ref: '#/components/schemas/MessageSchemaEvidence'
+        errors:
+          type: array
+          items:
+            type: string
     MessageFilterId:
       type: object
       properties:
@@ -4679,6 +5339,44 @@ components:
         - JSON
         - PROTOBUF
         - UNKNOWN
+    MessageSchemaEvidence:
+      type: object
+      properties:
+        subject:
+          type: string
+        id:
+          type: integer
+          format: int32
+        version:
+          type: string
+        type:
+          type: string
+    MessageValidationPreview:
+      type: object
+      required:
+        - canSerialize
+        - key
+        - value
+      properties:
+        canSerialize:
+          type: boolean
+          description: True when both supplied fields serialized successfully. Kafka delivery is not attempted.
+        errors:
+          type: array
+          items:
+            type: string
+        key:
+          $ref: '#/components/schemas/MessageFieldValidation'
+        value:
+          $ref: '#/components/schemas/MessageFieldValidation'
+      description: The result of serializing a message with the selected serdes without sending it to Kafka.
+    MessageValidationStatus:
+      type: string
+      enum:
+        - VALIDATED
+        - SERIALIZED
+        - SKIPPED
+        - INVALID
     Metric:
       type: object
       properties:
@@ -4736,6 +5434,279 @@ components:
           type: string
         authorizationUri:
           type: string
+    OperationsBroker:
+      type: object
+      required:
+        - id
+        - leaderCount
+        - replicaCount
+        - inSyncReplicaCount
+      properties:
+        id:
+          type: integer
+          format: int32
+        host:
+          type: string
+        port:
+          type: integer
+          format: int32
+        leaderCount:
+          type: integer
+          format: int32
+        replicaCount:
+          type: integer
+          format: int32
+        inSyncReplicaCount:
+          type: integer
+          format: int32
+        segmentBytes:
+          type: integer
+          format: int64
+        totalBytes:
+          type: integer
+          format: int64
+        usableBytes:
+          type: integer
+          format: int64
+        partitionSkew:
+          type: number
+          format: double
+        leaderSkew:
+          type: number
+          format: double
+    OperationsBrokers:
+      type: object
+      required:
+        - skewAvailable
+        - brokers
+      properties:
+        skewAvailable:
+          type: boolean
+        totalBytes:
+          type: integer
+          format: int64
+        usableBytes:
+          type: integer
+          format: int64
+        brokers:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationsBroker'
+    OperationsCenterSnapshot:
+      type: object
+      required:
+        - collectedAtMs
+        - health
+        - brokers
+        - topics
+        - consumers
+        - integrations
+      properties:
+        collectedAtMs:
+          type: integer
+          format: int64
+        health:
+          $ref: '#/components/schemas/OperationsHealth'
+        brokers:
+          $ref: '#/components/schemas/OperationsBrokers'
+        topics:
+          $ref: '#/components/schemas/OperationsTopics'
+        consumers:
+          $ref: '#/components/schemas/OperationsConsumers'
+        integrations:
+          $ref: '#/components/schemas/OperationsIntegrations'
+    OperationsConsumerGroup:
+      type: object
+      required:
+        - groupId
+        - committedPartitions
+      properties:
+        groupId:
+          type: string
+        state:
+          type: string
+        lag:
+          type: integer
+          format: int64
+        committedPartitions:
+          type: integer
+          format: int32
+    OperationsConsumerStateCount:
+      type: object
+      required:
+        - state
+        - count
+      properties:
+        state:
+          type: string
+        count:
+          type: integer
+          format: int32
+    OperationsConsumers:
+      type: object
+      required:
+        - visibleCount
+        - states
+        - worstLagging
+      properties:
+        visibleCount:
+          type: integer
+          format: int32
+        totalLag:
+          type: integer
+          format: int64
+        states:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationsConsumerStateCount'
+        worstLagging:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationsConsumerGroup'
+    OperationsHealth:
+      type: object
+      required:
+        - status
+        - score
+        - brokerCount
+        - offlinePartitions
+        - inSyncReplicas
+        - outOfSyncReplicas
+        - underReplicatedPartitions
+      properties:
+        status:
+          $ref: '#/components/schemas/ServerStatus'
+        controller:
+          $ref: '#/components/schemas/ControllerType'
+        score:
+          type: integer
+          format: int32
+        brokerCount:
+          type: integer
+          format: int32
+        offlinePartitions:
+          type: integer
+          format: int32
+        inSyncReplicas:
+          type: integer
+          format: int32
+        outOfSyncReplicas:
+          type: integer
+          format: int32
+        underReplicatedPartitions:
+          type: integer
+          format: int32
+        lastError:
+          type: string
+    OperationsIntegration:
+      type: object
+      required:
+        - name
+        - status
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum:
+            - AVAILABLE
+            - NOT_CONFIGURED
+            - UNAVAILABLE
+            - UNKNOWN
+        connectorCount:
+          type: integer
+          format: int32
+        failingConnectorCount:
+          type: integer
+          format: int32
+    OperationsIntegrations:
+      type: object
+      required:
+        - schemaRegistry
+        - connects
+      properties:
+        schemaRegistry:
+          $ref: '#/components/schemas/OperationsIntegration'
+        connects:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationsIntegration'
+    OperationsTopic:
+      type: object
+      required:
+        - name
+        - internal
+        - partitionCount
+        - replicationFactor
+        - underReplicatedPartitions
+        - riskSignals
+      properties:
+        name:
+          type: string
+        internal:
+          type: boolean
+        partitionCount:
+          type: integer
+          format: int32
+        replicationFactor:
+          type: integer
+          format: int32
+        underReplicatedPartitions:
+          type: integer
+          format: int32
+        messageCount:
+          type: integer
+          format: int64
+        storageBytes:
+          type: integer
+          format: int64
+        inboundBytesPerSec:
+          type: number
+          format: double
+        outboundBytesPerSec:
+          type: number
+          format: double
+        cleanupPolicy:
+          type: string
+        riskSignals:
+          type: array
+          items:
+            type: string
+    OperationsTopics:
+      type: object
+      required:
+        - visibleCount
+        - internalCount
+        - partitions
+        - atRisk
+        - largest
+      properties:
+        visibleCount:
+          type: integer
+          format: int32
+        internalCount:
+          type: integer
+          format: int32
+        partitions:
+          type: integer
+          format: int32
+        storageBytes:
+          type: integer
+          format: int64
+        inboundBytesPerSec:
+          type: number
+          format: double
+        outboundBytesPerSec:
+          type: number
+          format: double
+        atRisk:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationsTopic'
+        largest:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationsTopic'
     Partition:
       type: object
       required:
@@ -4772,6 +5743,8 @@ components:
           format: int64
     PartitionsIncrease:
       type: object
+      required:
+        - totalPartitionsCount
       properties:
         totalPartitionsCount:
           type: integer
@@ -4884,6 +5857,108 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Action'
+    RecordExplorerRecord:
+      type: object
+      required:
+        - topic
+        - partition
+        - offset
+        - timestamp
+      properties:
+        topic:
+          type: string
+        partition:
+          type: integer
+          format: int32
+        offset:
+          type: integer
+          format: int64
+        timestamp:
+          type: string
+          format: date-time
+        key:
+          type: string
+        value:
+          type: string
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        keySize:
+          type: integer
+          format: int64
+        valueSize:
+          type: integer
+          format: int64
+        headersSize:
+          type: integer
+          format: int64
+    RecordExplorerResponse:
+      type: object
+      required:
+        - query
+        - collectedAtMs
+        - visibleTopicCount
+        - topicLimit
+        - topicLimitReached
+        - topicsScanned
+        - perTopicSampleLimit
+        - sampledRecords
+        - resultLimit
+        - resultLimitReached
+        - coverage
+        - records
+      properties:
+        query:
+          type: string
+        collectedAtMs:
+          type: integer
+          format: int64
+        visibleTopicCount:
+          type: integer
+          format: int32
+        topicLimit:
+          type: integer
+          format: int32
+        topicLimitReached:
+          type: boolean
+        topicsScanned:
+          type: integer
+          format: int32
+        perTopicSampleLimit:
+          type: integer
+          format: int32
+        sampledRecords:
+          type: integer
+          format: int32
+        resultLimit:
+          type: integer
+          format: int32
+        resultLimitReached:
+          type: boolean
+        coverage:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecordExplorerTopicCoverage'
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecordExplorerRecord'
+    RecordExplorerTopicCoverage:
+      type: object
+      required:
+        - topic
+        - sampledRecords
+        - matchedRecords
+      properties:
+        topic:
+          type: string
+        sampledRecords:
+          type: integer
+          format: int32
+        matchedRecords:
+          type: integer
+          format: int32
     Replica:
       type: object
       properties:
@@ -4896,6 +5971,8 @@ components:
           type: boolean
     ReplicationFactorChange:
       type: object
+      required:
+        - totalReplicationFactor
       properties:
         totalReplicationFactor:
           type: integer
@@ -4936,6 +6013,68 @@ components:
         - TYPE
         - COMPATIBILITY
         - VERSION
+    SchemaImpact:
+      type: object
+      required:
+        - available
+      properties:
+        available:
+          type: boolean
+          description: False when the cluster does not have a Schema Registry configured.
+        unavailableReason:
+          type: string
+        schema:
+          $ref: '#/components/schemas/SchemaSubject'
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchemaImpactTopic'
+        references:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchemaImpactReference'
+        connectors:
+          type: array
+          items:
+            $ref: '#/components/schemas/SchemaImpactConnector'
+    SchemaImpactConnector:
+      type: object
+      required:
+        - connect
+        - name
+      properties:
+        connect:
+          type: string
+        name:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+    SchemaImpactReference:
+      type: object
+      required:
+        - name
+        - subject
+        - version
+        - accessible
+      properties:
+        name:
+          type: string
+        subject:
+          type: string
+        version:
+          type: integer
+          format: int32
+        accessible:
+          type: boolean
+    SchemaImpactTopic:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
     SchemaReference:
       type: object
       required:
@@ -5361,6 +6500,157 @@ components:
           type: object
           additionalProperties:
             type: string
+    TopicDataProfile:
+      type: object
+      required:
+        - sampled
+        - sampledAtMs
+        - sampleLimit
+        - sampleLimitReached
+        - sampledRecords
+        - totalPartitions
+        - sampledPartitions
+        - key
+        - value
+        - headers
+        - json
+      properties:
+        sampled:
+          type: boolean
+        sampledAtMs:
+          type: integer
+          format: int64
+        sampleLimit:
+          type: integer
+          format: int32
+        sampleLimitReached:
+          type: boolean
+        sampledRecords:
+          type: integer
+          format: int32
+        totalPartitions:
+          type: integer
+          format: int32
+        sampledPartitions:
+          type: integer
+          format: int32
+        key:
+          $ref: '#/components/schemas/TopicDataProfileField'
+        value:
+          $ref: '#/components/schemas/TopicDataProfileField'
+        headers:
+          $ref: '#/components/schemas/TopicDataProfileHeaders'
+        json:
+          $ref: '#/components/schemas/TopicDataProfileJson'
+    TopicDataProfileField:
+      type: object
+      required:
+        - presentCount
+        - nullCount
+        - size
+      properties:
+        presentCount:
+          type: integer
+          format: int32
+        nullCount:
+          type: integer
+          format: int32
+        size:
+          $ref: '#/components/schemas/TopicDataProfileSize'
+    TopicDataProfileHeader:
+      type: object
+      required:
+        - name
+        - occurrenceCount
+      properties:
+        name:
+          type: string
+        occurrenceCount:
+          type: integer
+          format: int32
+    TopicDataProfileHeaders:
+      type: object
+      required:
+        - recordsWithHeaders
+        - totalHeaders
+        - names
+      properties:
+        recordsWithHeaders:
+          type: integer
+          format: int32
+        totalHeaders:
+          type: integer
+          format: int32
+        names:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicDataProfileHeader'
+    TopicDataProfileJson:
+      type: object
+      required:
+        - parsedValueCount
+        - objectValueCount
+        - topLevelFields
+      properties:
+        parsedValueCount:
+          type: integer
+          format: int32
+        objectValueCount:
+          type: integer
+          format: int32
+        topLevelFields:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicDataProfileJsonField'
+    TopicDataProfileJsonField:
+      type: object
+      required:
+        - name
+        - presentCount
+        - nullCount
+        - types
+      properties:
+        name:
+          type: string
+        presentCount:
+          type: integer
+          format: int32
+        nullCount:
+          type: integer
+          format: int32
+        types:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicDataProfileJsonType'
+    TopicDataProfileJsonType:
+      type: string
+      enum:
+        - 'NULL'
+        - BOOLEAN
+        - NUMBER
+        - STRING
+        - ARRAY
+        - OBJECT
+    TopicDataProfileSize:
+      type: object
+      required:
+        - observedCount
+      properties:
+        observedCount:
+          type: integer
+          format: int32
+        minBytes:
+          type: integer
+          format: int64
+        maxBytes:
+          type: integer
+          format: int64
+        averageBytes:
+          type: integer
+          format: int64
+        p95Bytes:
+          type: integer
+          format: int64
     TopicDetails:
       type: object
       required:
@@ -5407,6 +6697,257 @@ components:
           type: string
         valueSerde:
           type: string
+    TopicDeveloperHealth:
+      type: string
+      enum:
+        - HEALTHY
+        - ATTENTION
+        - CRITICAL
+    TopicDeveloperInsights:
+      type: object
+      required:
+        - generatedAtMs
+        - healthScore
+        - health
+        - metrics
+        - recommendations
+      properties:
+        generatedAtMs:
+          type: integer
+          format: int64
+        healthScore:
+          type: integer
+          format: int32
+        health:
+          $ref: '#/components/schemas/TopicDeveloperHealth'
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicDeveloperMetric'
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicDeveloperRecommendation'
+    TopicDeveloperMetric:
+      type: object
+      required:
+        - id
+        - category
+        - label
+        - value
+        - tone
+      properties:
+        id:
+          type: string
+        category:
+          $ref: '#/components/schemas/TopicDeveloperMetricCategory'
+        label:
+          type: string
+        value:
+          type: string
+        detail:
+          type: string
+        tone:
+          $ref: '#/components/schemas/TopicDeveloperMetricTone'
+    TopicDeveloperMetricCategory:
+      type: string
+      enum:
+        - HEALTH
+        - TOPOLOGY
+        - STORAGE
+        - CONFIGURATION
+        - TRAFFIC
+        - CONSUMERS
+        - INTEGRATIONS
+    TopicDeveloperMetricTone:
+      type: string
+      enum:
+        - NEUTRAL
+        - SUCCESS
+        - WARNING
+        - CRITICAL
+        - INFO
+    TopicDeveloperRecommendation:
+      type: object
+      required:
+        - id
+        - severity
+        - title
+        - detail
+      properties:
+        id:
+          type: string
+        severity:
+          $ref: '#/components/schemas/TopicDeveloperRecommendationSeverity'
+        title:
+          type: string
+        detail:
+          type: string
+        action:
+          type: string
+    TopicDeveloperRecommendationSeverity:
+      type: string
+      enum:
+        - INFO
+        - WARNING
+        - CRITICAL
+    TopicGovernanceRecommendation:
+      type: object
+      required:
+        - code
+        - severity
+        - message
+      properties:
+        code:
+          type: string
+        severity:
+          type: string
+          enum:
+            - CRITICAL
+            - WARNING
+            - INFO
+        message:
+          type: string
+        evidence:
+          type: string
+    TopicGovernanceReport:
+      type: object
+      required:
+        - collectedAtMs
+        - brokerCount
+        - includedInternalTopics
+        - namingRule
+        - summary
+        - topics
+      properties:
+        collectedAtMs:
+          type: integer
+          format: int64
+        brokerCount:
+          type: integer
+          format: int32
+        includedInternalTopics:
+          type: boolean
+        namingRule:
+          type: string
+        summary:
+          $ref: '#/components/schemas/TopicGovernanceSummary'
+        topics:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicGovernanceTopic'
+    TopicGovernanceSettings:
+      type: object
+      required:
+        - configurationAvailable
+      properties:
+        configurationAvailable:
+          type: boolean
+        cleanupPolicy:
+          type: string
+        retentionMs:
+          type: integer
+          format: int64
+        retentionBytes:
+          type: integer
+          format: int64
+        segmentMs:
+          type: integer
+          format: int64
+        segmentBytes:
+          type: integer
+          format: int64
+        maxMessageBytes:
+          type: integer
+          format: int64
+    TopicGovernanceSummary:
+      type: object
+      required:
+        - totalTopics
+        - criticalTopics
+        - warningTopics
+        - infoTopics
+        - healthyTopics
+      properties:
+        totalTopics:
+          type: integer
+          format: int32
+        criticalTopics:
+          type: integer
+          format: int32
+        warningTopics:
+          type: integer
+          format: int32
+        infoTopics:
+          type: integer
+          format: int32
+        healthyTopics:
+          type: integer
+          format: int32
+    TopicGovernanceTopic:
+      type: object
+      required:
+        - name
+        - classification
+        - namingCompliant
+        - score
+        - severity
+        - partitionCount
+        - replicationFactor
+        - underReplicatedPartitions
+        - noInSyncReplicaPartitions
+        - offsetDataAvailable
+        - storageDataAvailable
+        - settings
+        - recommendations
+      properties:
+        name:
+          type: string
+        classification:
+          type: string
+          enum:
+            - SYSTEM
+            - APPLICATION
+        namingCompliant:
+          type: boolean
+        score:
+          type: integer
+          format: int32
+        severity:
+          type: string
+          enum:
+            - CRITICAL
+            - WARNING
+            - INFO
+            - HEALTHY
+        partitionCount:
+          type: integer
+          format: int32
+        replicationFactor:
+          type: integer
+          format: int32
+        underReplicatedPartitions:
+          type: integer
+          format: int32
+        noInSyncReplicaPartitions:
+          type: integer
+          format: int32
+        messageCount:
+          type: integer
+          format: int64
+        storageBytes:
+          type: integer
+          format: int64
+        offsetDataAvailable:
+          type: boolean
+        storageDataAvailable:
+          type: boolean
+        settings:
+          $ref: '#/components/schemas/TopicGovernanceSettings'
+        recommendations:
+          type: array
+          items:
+            $ref: '#/components/schemas/TopicGovernanceRecommendation'
     TopicLogdirs:
       type: object
       properties:
@@ -5573,6 +7114,8 @@ components:
             $ref: '#/components/schemas/SerdeDescription'
     TopicUpdate:
       type: object
+      required:
+        - configs
       properties:
         configs:
           type: object
@@ -5628,5 +7171,5 @@ components:
             $ref: '#/components/schemas/Action'
 servers:
   - url: http://localhost:8080
-    description: Default endpoint for Kafbat UI API
+    description: Default endpoint for Custom Kafka UI API
     variables: {}
