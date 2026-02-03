@@ -46,6 +46,7 @@ public abstract class AbstractIntegrationTest {
 
   public static final ConfluentKafkaContainer kafka = kafkaOriginal
       .withListener("0.0.0.0:9095", () -> kafkaOriginal.getNetworkAliases().getFirst() + ":9095")
+      .withEnv("KAFKA_DELETE_TOPIC_ENABLE", "true")
       .withEnv("KAFKA_JMX_PORT", String.valueOf(JMX_PORT))
       .withEnv("KAFKA_OPTS",
           "-Dcom.sun.management.jmxremote "
