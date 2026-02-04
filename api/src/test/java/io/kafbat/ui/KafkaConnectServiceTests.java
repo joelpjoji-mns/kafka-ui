@@ -22,6 +22,7 @@ import io.kafbat.ui.model.TopicCreationDTO;
 import io.kafbat.ui.service.ClustersStorage;
 import io.kafbat.ui.service.StatisticsService;
 import io.kafbat.ui.service.TopicsService;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -89,7 +90,7 @@ class KafkaConnectServiceTests extends AbstractIntegrationTest {
         .expectStatus().isOk();
 
     // Force cache refresh and wait for the consumer to start
-    Awaitility.await().until(() ->
+    Awaitility.await().atMost(Duration.ofSeconds(30)).until(() ->
         statisticsService.updateCache(kafkaCluster).map(v ->
             Optional.ofNullable(
                 v.getClusterState().getConsumerGroupsStates().get("connect-" + connectorName)
