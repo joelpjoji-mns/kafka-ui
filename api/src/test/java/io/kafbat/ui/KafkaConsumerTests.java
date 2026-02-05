@@ -11,6 +11,8 @@ import io.kafbat.ui.model.TopicCreationDTO;
 import io.kafbat.ui.model.TopicDetailsDTO;
 import io.kafbat.ui.model.TopicMessageEventDTO;
 import io.kafbat.ui.producer.KafkaTestProducer;
+import io.kafbat.ui.service.ClustersStorage;
+import io.kafbat.ui.service.StatisticsService;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +31,10 @@ class KafkaConsumerTests extends AbstractIntegrationTest {
 
   @Autowired
   private WebTestClient webTestClient;
+    @Autowired
+    private ClustersStorage clustersStorage;
+    @Autowired
+    private StatisticsService statisticsService;
 
 
   @Test
@@ -227,6 +233,8 @@ class KafkaConsumerTests extends AbstractIntegrationTest {
 
   @Test
   void shouldReturnConfigsForBroker() {
+        statisticsService.updateCache(clustersStorage.getClusterByName(LOCAL).orElseThrow()).block();
+
     List<BrokerConfigDTO> configs = webTestClient.get()
         .uri("/api/clusters/{clusterName}/brokers/{id}/configs",
             LOCAL,
