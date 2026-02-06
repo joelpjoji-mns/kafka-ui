@@ -1,6 +1,8 @@
 package io.kafbat.ui;
 
 import io.kafbat.ui.model.TopicCreationDTO;
+import io.kafbat.ui.service.ClustersStorage;
+import io.kafbat.ui.service.StatisticsService;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,6 +12,10 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 class KafkaTopicCreateTests extends AbstractIntegrationTest {
   @Autowired
   private WebTestClient webTestClient;
+  @Autowired
+  private ClustersStorage clustersStorage;
+  @Autowired
+  private StatisticsService statisticsService;
   private TopicCreationDTO topicCreation;
 
   @BeforeEach
@@ -65,6 +71,8 @@ class KafkaTopicCreateTests extends AbstractIntegrationTest {
             .exchange()
             .expectStatus()
             .isOk();
+
+              statisticsService.updateCache(clustersStorage.getClusterByName(LOCAL).orElseThrow()).block();
 
     webTestClient.post()
             .uri("/api/clusters/{clusterName}/topics/" + topicCreation.getName(), LOCAL)
