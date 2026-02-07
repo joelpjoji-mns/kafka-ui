@@ -101,6 +101,34 @@ class TailingEmitterTest extends AbstractIntegrationTest {
         );
   }
 
+      @Test
+      void recentMessagesAreEmittedBeforeTheStreamContinuesWithNewMessages() throws Exception {
+      producer.send(new ProducerRecord<>(topic, "history-1", "history-1")).get();
+      producer.send(new ProducerRecord<>(topic, "history-2", "history-2")).get();
+
+      var fluxOutput = startTailing(null);
+
+      Awaitility.await()
+        .atMost(Duration.ofSeconds(60))
+        .pollInSameThread()
+        .untilAsserted(() ->
+          assertThat(fluxOutput)
+            .filteredOn(msg -> msg.getType() == TopicMessageEventDTO.TypeEnum.MESSAGE)
+            .extracting(msg -> msg.getMessage().getValue())
+            .contains("history-1", "history-2"));
+
+      producer.send(new ProducerRecord<>(topic, "live-1", "live-1")).get();
+
+      Awaitility.await()
+        .atMost(Duration.ofSeconds(60))
+        .pollInSameThread()
+        .untilAsserted(() ->
+          assertThat(fluxOutput)
+            .filteredOn(msg -> msg.getType() == TopicMessageEventDTO.TypeEnum.MESSAGE)
+            .extracting(msg -> msg.getMessage().getValue())
+            .contains("history-1", "history-2", "live-1"));
+      }
+
   private Flux<TopicMessageEventDTO> createTailingFlux(
       String topicName,
       String query) {
@@ -111,7 +139,7 @@ class TailingEmitterTest extends AbstractIntegrationTest {
     return applicationContext.getBean(MessagesService.class)
         .loadMessages(cluster, topicName,
             new ConsumerPosition(PollingModeDTO.TAILING, topic, List.of(), null, null),
-        List.of(query),
+      query == null ? List.of() : List.of(query),
             null,
             0,
             StringSerde.NAME,
