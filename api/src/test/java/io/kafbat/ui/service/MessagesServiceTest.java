@@ -2,12 +2,16 @@ package io.kafbat.ui.service;
 
 import static io.kafbat.ui.service.MessagesService.execSmartFilterTest;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.confluent.kafka.schemaregistry.avro.AvroSchema;
 import io.kafbat.ui.AbstractIntegrationTest;
 import io.kafbat.ui.exception.TopicNotFoundException;
+import io.kafbat.ui.exception.ValidationException;
 import io.kafbat.ui.model.ConsumerPosition;
 import io.kafbat.ui.model.CreateTopicMessageDTO;
 import io.kafbat.ui.model.KafkaCluster;
+import io.kafbat.ui.model.MessageValidationStatusDTO;
 import io.kafbat.ui.model.PollingModeDTO;
 import io.kafbat.ui.model.SmartFilterTestExecutionDTO;
 import io.kafbat.ui.model.TopicMessageDTO;
@@ -15,18 +19,26 @@ import io.kafbat.ui.model.TopicMessageEventDTO;
 import io.kafbat.ui.producer.KafkaTestProducer;
 import io.kafbat.ui.serdes.builtin.ProtobufFileSerde;
 import io.kafbat.ui.serdes.builtin.StringSerde;
+import io.kafbat.ui.serdes.builtin.sr.SchemaRegistrySerde;
+import io.kafbat.ui.service.MessagesService.DownloadFormat;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.zip.ZipInputStream;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,8 +53,7 @@ class MessagesServiceTest extends AbstractIntegrationTest {
   private static final String MASKED_TOPICS_PREFIX = "masking-test-";
   private static final String NON_EXISTING_TOPIC = UUID.randomUUID().toString();
 
-  @Autowired
-  MessagesService messagesService;
+  @Autowired MessagesService messagesService;
 
   KafkaCluster cluster;
 
@@ -50,10 +61,8 @@ class MessagesServiceTest extends AbstractIntegrationTest {
 
   @BeforeEach
   void init() {
-    cluster = applicationContext
-        .getBean(ClustersStorage.class)
-        .getClusterByName(LOCAL)
-        .orElseThrow();
+    cluster =
+        applicationContext.getBean(ClustersStorage.class).getClusterByName(LOCAL).orElseThrow();
   }
 
   @AfterEach
@@ -70,17 +79,92 @@ class MessagesServiceTest extends AbstractIntegrationTest {
 
   @Test
   void sendMessageReturnsExceptionWhenTopicNotFound() {
-    StepVerifier.create(messagesService.sendMessage(cluster, NON_EXISTING_TOPIC, new CreateTopicMessageDTO()))
+    StepVerifier.create(
+            messagesService.sendMessage(cluster, NON_EXISTING_TOPIC, new CreateTopicMessageDTO()))
         .expectError(TopicNotFoundException.class)
         .verify();
   }
 
   @Test
+  void previewMessageSerializesWithoutProducing() {
+    String testTopic = MessagesServiceTest.class.getSimpleName() + UUID.randomUUID();
+    createTopicWithCleanup(new NewTopic(testTopic, 1, (short) 1));
+
+    var preview =
+        messagesService
+            .previewMessage(
+                cluster,
+                testTopic,
+                new CreateTopicMessageDTO()
+                    .partition(0)
+                    .key("preview-key")
+                    .value("preview-value")
+                    .keySerde(StringSerde.NAME)
+                    .valueSerde(StringSerde.NAME))
+            .block();
+
+    assertThat(preview).isNotNull();
+    assertThat(preview.getCanSerialize()).isTrue();
+    assertThat(preview.getKey().getStatus()).isEqualTo(MessageValidationStatusDTO.SERIALIZED);
+    assertThat(preview.getValue().getStatus()).isEqualTo(MessageValidationStatusDTO.SERIALIZED);
+    assertThat(preview.getValue().getSerializedBytes()).isEqualTo((long) "preview-value".length());
+    assertThat(topicRecords(testTopic)).isEmpty();
+  }
+
+  @Test
+  void previewMessageReportsSchemaValidationForSchemaRegistrySerde() throws Exception {
+    String testTopic = MessagesServiceTest.class.getSimpleName() + UUID.randomUUID();
+    createTopicWithCleanup(new NewTopic(testTopic, 1, (short) 1));
+    AvroSchema schema =
+        new AvroSchema(
+            """
+            {"type":"record","name":"Preview","fields":[{"name":"value","type":"string"}]}
+            """);
+    String keySubject = testTopic + "-key";
+    String valueSubject = testTopic + "-value";
+
+    try {
+      schemaRegistry.schemaRegistryClient().register(keySubject, schema);
+      schemaRegistry.schemaRegistryClient().register(valueSubject, schema);
+
+      var preview =
+          messagesService
+              .previewMessage(
+                  cluster,
+                  testTopic,
+                  new CreateTopicMessageDTO()
+                      .partition(0)
+                      .key("{\"value\":\"key\"}")
+                      .value("{\"value\":\"value\"}")
+                      .keySerde(SchemaRegistrySerde.NAME)
+                      .valueSerde(SchemaRegistrySerde.NAME))
+              .block();
+
+      assertThat(preview).isNotNull();
+      assertThat(preview.getCanSerialize()).isTrue();
+      assertThat(preview.getKey().getStatus()).isEqualTo(MessageValidationStatusDTO.VALIDATED);
+      assertThat(preview.getValue().getStatus()).isEqualTo(MessageValidationStatusDTO.VALIDATED);
+      assertThat(preview.getValue().getSchema().getSubject()).isEqualTo(valueSubject);
+      assertThat(preview.getValue().getSchema().getId()).isNotNull();
+    } finally {
+      schemaRegistry.schemaRegistryClient().deleteSubject(keySubject);
+      schemaRegistry.schemaRegistryClient().deleteSubject(valueSubject);
+    }
+  }
+
+  @Test
   void loadMessagesReturnsExceptionWhenTopicNotFound() {
-    StepVerifier.create(messagesService
-            .loadMessages(cluster, NON_EXISTING_TOPIC,
-                new ConsumerPosition(PollingModeDTO.TAILING, NON_EXISTING_TOPIC, List.of(), null, null),
-                null, null, 1, "String", "String"))
+    StepVerifier.create(
+            messagesService.loadMessages(
+                cluster,
+                NON_EXISTING_TOPIC,
+                new ConsumerPosition(
+                    PollingModeDTO.TAILING, NON_EXISTING_TOPIC, List.of(), null, null),
+                null,
+                null,
+                1,
+                "String",
+                "String"))
         .expectError(TopicNotFoundException.class)
         .verify();
   }
@@ -96,24 +180,18 @@ class MessagesServiceTest extends AbstractIntegrationTest {
       producer.send(testTopic, "download-message-2").get();
     }
 
-    byte[] zip = messagesService.downloadLastMessagesAsZip(
-        cluster,
-        testTopic,
-        2,
-        List.of(),
-        null,
-        null,
-        StringSerde.NAME,
-        StringSerde.NAME
-    ).block();
+    byte[] zip =
+        messagesService
+            .downloadLastMessagesAsZip(
+                cluster, testTopic, 2, List.of(), null, null, StringSerde.NAME, StringSerde.NAME)
+            .block();
 
     Map<String, String> entries = unzip(zip);
     assertThat(entries).hasSize(2);
     assertThat(entries)
         .containsKeys(
             "2Offset-0Partition-" + testTopic + "-Topic.txt",
-            "1Offset-0Partition-" + testTopic + "-Topic.txt"
-        );
+            "1Offset-0Partition-" + testTopic + "-Topic.txt");
     assertThat(entries.get("2Offset-0Partition-" + testTopic + "-Topic.txt"))
         .contains("Topic: " + testTopic)
         .contains("Partition: 0")
@@ -127,34 +205,67 @@ class MessagesServiceTest extends AbstractIntegrationTest {
     String testTopic = MessagesServiceTest.class.getSimpleName() + UUID.randomUUID();
     createTopicWithCleanup(new NewTopic(testTopic, 1, (short) 1));
 
-    byte[] zip = messagesService.downloadLastMessagesAsZip(
-        cluster,
-        testTopic,
-        10,
-        List.of(),
-        null,
-        null,
-        StringSerde.NAME,
-        StringSerde.NAME
-    ).block();
+    byte[] zip =
+        messagesService
+            .downloadLastMessagesAsZip(
+                cluster, testTopic, 10, List.of(), null, null, StringSerde.NAME, StringSerde.NAME)
+            .block();
 
-    assertThat(unzip(zip)).containsEntry("README.txt", "No messages were found for topic " + testTopic + ".");
+    assertThat(unzip(zip))
+        .containsEntry("README.txt", "No messages were found for topic " + testTopic + ".");
   }
 
   @Test
   void downloadLastMessagesAsZipRejectsInvalidLimit() {
-    StepVerifier.create(messagesService.downloadLastMessagesAsZip(
-            cluster,
-            "topic",
-            0,
-            List.of(),
-            null,
-            null,
-            StringSerde.NAME,
-            StringSerde.NAME
-        ))
+    StepVerifier.create(
+            messagesService.downloadLastMessagesAsZip(
+                cluster, "topic", 0, List.of(), null, null, StringSerde.NAME, StringSerde.NAME))
         .expectErrorMatches(e -> e.getMessage().contains("Download limit must be between 1 and"))
         .verify();
+  }
+
+  @Test
+  void downloadLimitUsesTheNewDefaultAndMaximum() {
+    assertThat(messagesService.resolveDownloadLimit(null)).isEqualTo(500);
+    assertThat(messagesService.resolveDownloadLimit(5_000)).isEqualTo(5_000);
+    assertThatThrownBy(() -> messagesService.resolveDownloadLimit(5_001))
+        .isInstanceOf(ValidationException.class)
+        .hasMessage("Download limit must be between 1 and 5000");
+  }
+
+  @Test
+  void downloadMessagesAppliesAllStringFilters() throws Exception {
+    String testTopic = MessagesServiceTest.class.getSimpleName() + UUID.randomUUID();
+    createTopicWithCleanup(new NewTopic(testTopic, 1, (short) 1));
+
+    try (var producer = KafkaTestProducer.forKafka(kafka)) {
+      producer.send(testTopic, "payment complete");
+      producer.send(testTopic, "payment pending");
+      producer.send(testTopic, "invoice complete").get();
+    }
+
+    var result =
+        messagesService
+            .downloadMessages(
+                cluster,
+                testTopic,
+                10,
+                List.of(),
+                List.of("payment", "complete"),
+                null,
+                StringSerde.NAME,
+                StringSerde.NAME,
+                PollingModeDTO.EARLIEST,
+                null,
+                null,
+                null,
+                DownloadFormat.NDJSON)
+            .block();
+
+    assertThat(result).isNotNull();
+    String content = new String(result.content(), StandardCharsets.UTF_8);
+    assertThat(content).contains("payment complete");
+    assertThat(content).doesNotContain("payment pending").doesNotContain("invoice complete");
   }
 
   @Test
@@ -167,17 +278,19 @@ class MessagesServiceTest extends AbstractIntegrationTest {
       producer.send(testTopic, "message2").get();
     }
 
-    Flux<TopicMessageDTO> msgsFlux = messagesService.loadMessages(
-            cluster,
-            testTopic,
-            new ConsumerPosition(PollingModeDTO.EARLIEST, testTopic, List.of(), null, null),
-            null,
-            null,
-            100,
-            StringSerde.NAME,
-            StringSerde.NAME
-        ).filter(evt -> evt.getType() == TopicMessageEventDTO.TypeEnum.MESSAGE)
-        .map(TopicMessageEventDTO::getMessage);
+    Flux<TopicMessageDTO> msgsFlux =
+        messagesService
+            .loadMessages(
+                cluster,
+                testTopic,
+                new ConsumerPosition(PollingModeDTO.EARLIEST, testTopic, List.of(), null, null),
+                null,
+                null,
+                100,
+                StringSerde.NAME,
+                StringSerde.NAME)
+            .filter(evt -> evt.getType() == TopicMessageEventDTO.TypeEnum.MESSAGE)
+            .map(TopicMessageEventDTO::getMessage);
 
     // both messages should be masked
     StepVerifier.create(msgsFlux)
@@ -188,7 +301,8 @@ class MessagesServiceTest extends AbstractIntegrationTest {
 
   @ParameterizedTest
   @CsvSource({"EARLIEST", "LATEST"})
-  void cursorIsRegisteredAfterPollingIsDoneAndCanBeUsedForNextPagePolling(PollingModeDTO mode) throws Exception {
+  void cursorIsRegisteredAfterPollingIsDoneAndCanBeUsedForNextPagePolling(PollingModeDTO mode)
+      throws Exception {
     String testTopic = MessagesServiceTest.class.getSimpleName() + UUID.randomUUID();
     createTopicWithCleanup(new NewTopic(testTopic, 5, (short) 1));
 
@@ -199,42 +313,50 @@ class MessagesServiceTest extends AbstractIntegrationTest {
       for (int i = 0; i < msgsToGenerate - 1; i++) {
         producer.send(testTopic, "message_" + i);
       }
-      // Wait for the last message to ensure all messages are visible before polling with LATEST mode
+      // Wait for the last message to ensure all messages are visible before polling with LATEST
+      // mode
       producer.send(testTopic, "message_" + (msgsToGenerate - 1)).get();
     }
 
     var cursorIdCatcher = new AtomicReference<String>();
-    Flux<String> msgsFlux = messagesService.loadMessages(
-            cluster, testTopic,
-            new ConsumerPosition(mode, testTopic, List.of(), null, null),
-            null, null, pageSize, StringSerde.NAME, StringSerde.NAME)
-        .doOnNext(evt -> {
-          if (evt.getType() == TopicMessageEventDTO.TypeEnum.DONE) {
-            assertThat(evt.getCursor()).isNotNull();
-            cursorIdCatcher.set(evt.getCursor().getId());
-          }
-        })
-        .filter(evt -> evt.getType() == TopicMessageEventDTO.TypeEnum.MESSAGE)
-        .map(evt -> evt.getMessage().getValue());
+    Flux<String> msgsFlux =
+        messagesService
+            .loadMessages(
+                cluster,
+                testTopic,
+                new ConsumerPosition(mode, testTopic, List.of(), null, null),
+                null,
+                null,
+                pageSize,
+                StringSerde.NAME,
+                StringSerde.NAME)
+            .doOnNext(
+                evt -> {
+                  if (evt.getType() == TopicMessageEventDTO.TypeEnum.DONE) {
+                    assertThat(evt.getCursor()).isNotNull();
+                    cursorIdCatcher.set(evt.getCursor().getId());
+                  }
+                })
+            .filter(evt -> evt.getType() == TopicMessageEventDTO.TypeEnum.MESSAGE)
+            .map(evt -> evt.getMessage().getValue());
 
-    StepVerifier.create(msgsFlux)
-        .expectNextCount(pageSize)
-        .verifyComplete();
+    StepVerifier.create(msgsFlux).expectNextCount(pageSize).verifyComplete();
 
     assertThat(cursorIdCatcher.get()).isNotNull();
 
-    Flux<String> remainingMsgs = messagesService.loadMessages(cluster, testTopic, cursorIdCatcher.get())
-        .doOnNext(evt -> {
-          if (evt.getType() == TopicMessageEventDTO.TypeEnum.DONE) {
-            assertThat(evt.getCursor()).isNull();
-          }
-        })
-        .filter(evt -> evt.getType() == TopicMessageEventDTO.TypeEnum.MESSAGE)
-        .map(evt -> evt.getMessage().getValue());
+    Flux<String> remainingMsgs =
+        messagesService
+            .loadMessages(cluster, testTopic, cursorIdCatcher.get())
+            .doOnNext(
+                evt -> {
+                  if (evt.getType() == TopicMessageEventDTO.TypeEnum.DONE) {
+                    assertThat(evt.getCursor()).isNull();
+                  }
+                })
+            .filter(evt -> evt.getType() == TopicMessageEventDTO.TypeEnum.MESSAGE)
+            .map(evt -> evt.getMessage().getValue());
 
-    StepVerifier.create(remainingMsgs)
-        .expectNextCount(msgsToGenerate - pageSize)
-        .verifyComplete();
+    StepVerifier.create(remainingMsgs).expectNextCount(msgsToGenerate - pageSize).verifyComplete();
   }
 
   private void createTopicWithCleanup(NewTopic newTopic) {
@@ -242,11 +364,33 @@ class MessagesServiceTest extends AbstractIntegrationTest {
     createdTopics.add(newTopic.name());
   }
 
+  private List<String> topicRecords(String topic) {
+    Properties properties = new Properties();
+    properties.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers());
+    properties.put(ConsumerConfig.GROUP_ID_CONFIG, "preview-check-" + UUID.randomUUID());
+    properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+    properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+    properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+
+    try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(properties)) {
+      TopicPartition partition = new TopicPartition(topic, 0);
+      consumer.assign(List.of(partition));
+      consumer.seekToBeginning(List.of(partition));
+      return consumer.poll(Duration.ofSeconds(1)).records(partition).stream()
+          .map(record -> record.value())
+          .toList();
+    }
+  }
+
   private Map<String, String> unzip(byte[] zip) throws IOException {
     Map<String, String> entries = new LinkedHashMap<>();
-    try (ZipInputStream zipInputStream = new ZipInputStream(new ByteArrayInputStream(zip), StandardCharsets.UTF_8)) {
-      for (var entry = zipInputStream.getNextEntry(); entry != null; entry = zipInputStream.getNextEntry()) {
-        entries.put(entry.getName(), new String(zipInputStream.readAllBytes(), StandardCharsets.UTF_8));
+    try (ZipInputStream zipInputStream =
+        new ZipInputStream(new ByteArrayInputStream(zip), StandardCharsets.UTF_8)) {
+      for (var entry = zipInputStream.getNextEntry();
+          entry != null;
+          entry = zipInputStream.getNextEntry()) {
+        entries.put(
+            entry.getName(), new String(zipInputStream.readAllBytes(), StandardCharsets.UTF_8));
         zipInputStream.closeEntry();
       }
     }
@@ -255,15 +399,17 @@ class MessagesServiceTest extends AbstractIntegrationTest {
 
   @Test
   void execSmartFilterTestReturnsExecutionResult() {
-    var params = new SmartFilterTestExecutionDTO()
-        .filterCode("has(record.key) && has(record.value) && record.headers.size() != 0 "
-            + "&& has(record.timestampMs) && has(record.offset)")
-        .key("1234")
-        .value("{ \"some\" : \"value\" } ")
-        .headers(Map.of("h1", "hv1"))
-        .offset(12345L)
-        .timestampMs(System.currentTimeMillis())
-        .partition(1);
+    var params =
+        new SmartFilterTestExecutionDTO()
+            .filterCode(
+                "has(record.key) && has(record.value) && record.headers.size() != 0 "
+                    + "&& has(record.timestampMs) && has(record.offset)")
+            .key("1234")
+            .value("{ \"some\" : \"value\" } ")
+            .headers(Map.of("h1", "hv1"))
+            .offset(12345L)
+            .timestampMs(System.currentTimeMillis())
+            .partition(1);
 
     var actual = execSmartFilterTest(params);
     assertThat(actual.getError()).isNull();
@@ -277,37 +423,31 @@ class MessagesServiceTest extends AbstractIntegrationTest {
 
   @Test
   void execSmartFilterTestCompilesToNonBooleanExpression() {
-    var result = execSmartFilterTest(
-        new SmartFilterTestExecutionDTO()
-            .filterCode("1/0")
-    );
+    var result = execSmartFilterTest(new SmartFilterTestExecutionDTO().filterCode("1/0"));
     assertThat(result.getResult()).isNull();
     assertThat(result.getError()).containsIgnoringCase("Compilation error");
   }
 
   @Test
   void execSmartFilterTestReturnsErrorOnFilterApplyError() {
-    var result = execSmartFilterTest(
-        new SmartFilterTestExecutionDTO()
-            .filterCode("1/0 == 1")
-    );
+    var result = execSmartFilterTest(new SmartFilterTestExecutionDTO().filterCode("1/0 == 1"));
     assertThat(result.getResult()).isNull();
     assertThat(result.getError()).containsIgnoringCase("execution error");
   }
 
   @Test
   void execSmartFilterTestReturnsErrorOnFilterCompilationError() {
-    var result = execSmartFilterTest(
-        new SmartFilterTestExecutionDTO()
-            .filterCode("this is invalid CEL syntax = 1")
-    );
+    var result =
+        execSmartFilterTest(
+            new SmartFilterTestExecutionDTO().filterCode("this is invalid CEL syntax = 1"));
     assertThat(result.getResult()).isNull();
     assertThat(result.getError()).containsIgnoringCase("Compilation error");
   }
 
   @Test
   void sendMessageWithProtobufAnyType() {
-    String jsonContent = """
+    String jsonContent =
+        """
         {
           "name": "testName",
           "payload": {
@@ -317,21 +457,23 @@ class MessagesServiceTest extends AbstractIntegrationTest {
         }
         """;
 
-    CreateTopicMessageDTO testMessage = new CreateTopicMessageDTO()
-        .key(null)
-        .partition(0)
-        .keySerde(StringSerde.NAME)
-        .value(jsonContent)
-        .valueSerde(ProtobufFileSerde.NAME);
+    CreateTopicMessageDTO testMessage =
+        new CreateTopicMessageDTO()
+            .key(null)
+            .partition(0)
+            .keySerde(StringSerde.NAME)
+            .value(jsonContent)
+            .valueSerde(ProtobufFileSerde.NAME);
 
     String testTopic = MASKED_TOPICS_PREFIX + UUID.randomUUID();
     createTopicWithCleanup(new NewTopic(testTopic, 5, (short) 1));
 
     StepVerifier.create(messagesService.sendMessage(cluster, testTopic, testMessage))
-        .expectNextMatches(metadata -> metadata.topic().equals(testTopic)
-            && metadata.partition() == 0
-            && metadata.offset() >= 0)
+        .expectNextMatches(
+            metadata ->
+                metadata.topic().equals(testTopic)
+                    && metadata.partition() == 0
+                    && metadata.offset() >= 0)
         .verifyComplete();
   }
-
 }
