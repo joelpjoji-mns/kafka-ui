@@ -7,6 +7,7 @@ import io.kafbat.ui.exception.NotFoundException;
 import io.kafbat.ui.exception.ValidationException;
 import io.kafbat.ui.model.KafkaCluster;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -16,8 +17,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.kafka.clients.admin.NewTopic;
-import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -118,6 +119,26 @@ class OffsetsResetServiceTest extends AbstractIntegrationTest {
   }
 
   @Test
+  void consumerRestartConsumesFromTheResetOffset() {
+    sendMsgsToPartition(Map.of(0, 10));
+    commit(Map.of(0, 5L));
+
+    offsetsResetService.resetToOffsets(cluster, groupId, topic, Map.of(0, 2L)).block();
+
+    TopicPartition partition = new TopicPartition(topic, 0);
+    try (var consumer = groupConsumer()) {
+      consumer.subscribe(List.of(topic));
+      List<ConsumerRecord<Bytes, Bytes>> records = new ArrayList<>();
+      for (int attempt = 0; attempt < 5 && records.isEmpty(); attempt++) {
+        records.addAll(consumer.poll(Duration.ofSeconds(1)).records(partition));
+      }
+
+      assertThat(records).isNotEmpty();
+      assertThat(records.get(0).offset()).isEqualTo(2L);
+    }
+  }
+
+  @Test
   void resetToOffsetsCommitsEarliestOrLatestOffsetsIfOffsetsBoundsNotValid() {
     sendMsgsToPartition(Map.of(0, 10, 1, 10, 2, 10));
 
@@ -125,6 +146,33 @@ class OffsetsResetServiceTest extends AbstractIntegrationTest {
     var expectedOffsets = Map.of(0, 0L, 1, 5L, 2, 10L);
     offsetsResetService.resetToOffsets(cluster, groupId, topic, offsetsWithInValidBounds).block();
     assertOffsets(expectedOffsets);
+  }
+
+  @Test
+  void previewsOffsetResetReplaySkipAndBounds() {
+    sendMsgsToPartition(Map.of(0, 10));
+    commit(Map.of(0, 8L));
+
+    var replay = offsetsResetService.previewToOffsets(cluster, groupId, topic, Map.of(0, 3L)).block();
+    assertThat(replay.partitions()).singleElement().satisfies(preview -> {
+      assertThat(preview.currentCommittedOffset()).isEqualTo(8L);
+      assertThat(preview.requestedOffset()).isEqualTo(3L);
+      assertThat(preview.targetOffset()).isEqualTo(3L);
+      assertThat(preview.logStartOffset()).isZero();
+      assertThat(preview.logEndOffset()).isEqualTo(10L);
+      assertThat(preview.impact()).isEqualTo(OffsetsResetService.OffsetResetImpact.REPLAY);
+      assertThat(preview.affectedMessages()).isEqualTo(5L);
+      assertThat(preview.targetAdjusted()).isFalse();
+    });
+
+    var skip = offsetsResetService.previewToOffsets(cluster, groupId, topic, Map.of(0, 50L)).block();
+    assertThat(skip.partitions()).singleElement().satisfies(preview -> {
+      assertThat(preview.requestedOffset()).isEqualTo(50L);
+      assertThat(preview.targetOffset()).isEqualTo(10L);
+      assertThat(preview.impact()).isEqualTo(OffsetsResetService.OffsetResetImpact.SKIP);
+      assertThat(preview.affectedMessages()).isEqualTo(2L);
+      assertThat(preview.targetAdjusted()).isTrue();
+    });
   }
 
   @Test
@@ -216,7 +264,7 @@ class OffsetsResetServiceTest extends AbstractIntegrationTest {
     }
   }
 
-  private Consumer<?, ?> groupConsumer() {
+  private KafkaConsumer<Bytes, Bytes> groupConsumer() {
     Properties props = new Properties();
     props.put(ConsumerConfig.CLIENT_ID_CONFIG, "kafbat-ui-" + UUID.randomUUID());
     props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, cluster.getBootstrapServers());
