@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import io.kafbat.ui.AbstractIntegrationTest;
+import io.kafbat.ui.model.AuditTrailResponseDTO;
 import io.kafbat.ui.model.TopicCreationDTO;
 import io.kafbat.ui.model.rbac.Resource;
 import java.time.Duration;
@@ -72,6 +73,53 @@ class AuditIntegrationTest extends AbstractIntegrationTest {
             });
           });
     }
+  }
+
+  @Test
+  void auditTrailEndpointReadsRecordedTopicEvidence() {
+    String newTopicName = "test_audit_trail_" + UUID.randomUUID();
+
+    webTestClient.post()
+        .uri("/api/clusters/{clusterName}/topics", LOCAL)
+        .bodyValue(
+            new TopicCreationDTO()
+                .replicationFactor(1)
+                .partitions(1)
+                .name(newTopicName)
+        )
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    Awaitility.await()
+        .pollInSameThread()
+        .atMost(Duration.ofSeconds(15))
+        .untilAsserted(() -> {
+          var response = webTestClient.get()
+              .uri(builder -> builder.path("/api/clusters/{clusterName}/audit")
+                  .queryParam("resource", newTopicName)
+                  .queryParam("operation", "createTopic")
+                  .queryParam("outcome", "SUCCESS")
+                  .queryParam("limit", 25)
+                  .build(LOCAL))
+              .exchange()
+              .expectStatus()
+              .isOk()
+              .expectBody(AuditTrailResponseDTO.class)
+              .returnResult()
+              .getResponseBody();
+
+          assertThat(response).isNotNull();
+          assertThat(response.getStatus()).isEqualTo(AuditTrailResponseDTO.StatusEnum.AVAILABLE);
+          assertThat(response.getEvents()).anySatisfy(event -> {
+            assertThat(event.getOperation()).isEqualTo("createTopic");
+            assertThat(event.getOutcome().getValue()).isEqualTo("SUCCESS");
+            assertThat(event.getResources()).anySatisfy(resource -> {
+              assertThat(resource.getType()).isEqualTo("TOPIC");
+              assertThat(resource.getResourceId()).isEqualTo(newTopicName);
+            });
+          });
+        });
   }
 
   private KafkaConsumer<?, String> createConsumer() {
