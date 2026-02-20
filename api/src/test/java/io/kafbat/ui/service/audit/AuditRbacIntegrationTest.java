@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.kafbat.ui.container.ActiveDirectoryContainer;
+import io.kafbat.ui.model.AuditTrailResponseDTO;
 import io.kafbat.ui.model.TopicCreationDTO;
 import io.kafbat.ui.model.TopicDetailsDTO;
 import io.kafbat.ui.model.TopicMessageDTO;
@@ -103,6 +104,23 @@ public class AuditRbacIntegrationTest {
 
       return false;
     }));
+
+    AuditTrailResponseDTO trail = webTestClient.get()
+        .uri(builder -> builder.path("/api/clusters/{clusterName}/audit")
+            .queryParam("resource", topicName)
+            .queryParam("limit", 25)
+            .build(LOCAL))
+        .cookie(SESSION, viewerSession)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody(AuditTrailResponseDTO.class)
+        .returnResult()
+        .getResponseBody();
+
+    assertNotNull(trail);
+    assertTrue(trail.getEvents().stream().anyMatch(event ->
+        event.getResources().stream().anyMatch(resource -> topicName.equals(resource.getResourceId()))));
   }
 
   public static class Initializer implements ApplicationContextInitializer<ConfigurableApplicationContext> {
