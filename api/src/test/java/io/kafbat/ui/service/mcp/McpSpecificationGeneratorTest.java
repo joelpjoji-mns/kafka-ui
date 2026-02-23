@@ -22,6 +22,8 @@ import io.kafbat.ui.service.KafkaConnectService;
 import io.kafbat.ui.service.TopicsService;
 import io.kafbat.ui.service.acl.AclsService;
 import io.kafbat.ui.service.analyze.TopicAnalysisService;
+import io.kafbat.ui.service.profile.TopicDataProfileService;
+import io.kafbat.ui.service.TopicDeveloperInsightsService;
 import io.modelcontextprotocol.server.McpAsyncServerExchange;
 import io.modelcontextprotocol.server.McpServerFeatures.AsyncToolSpecification;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -51,71 +53,116 @@ class McpSpecificationGeneratorTest {
 
   private static TopicsController topicsController() {
     return new TopicsController(
-        mock(TopicsService.class), mock(TopicAnalysisService.class), mock(ClusterMapper.class),
-        mock(ClustersProperties.class), mock(KafkaConnectService.class), mock(AclsService.class)
-    );
+        mock(TopicsService.class),
+        mock(TopicAnalysisService.class),
+        mock(TopicDataProfileService.class),
+        mock(TopicDeveloperInsightsService.class),
+        mock(ClusterMapper.class),
+        mock(ClustersProperties.class),
+        mock(KafkaConnectService.class),
+        mock(AclsService.class));
+  }
+
+  private static McpSchema.Tool tool(
+      String name, String description, McpSchema.JsonSchema inputSchema) {
+    return McpSchema.Tool.builder()
+        .name(name)
+        .description(description)
+        .inputSchema(inputSchema)
+        .build();
   }
 
   @Test
   void testConvertController() {
     McpSpecificationGenerator generator = generatorWith(mock(ClustersStorage.class));
-    List<AsyncToolSpecification> specifications =
-        generator.convertTool(topicsController());
+    List<AsyncToolSpecification> specifications = generator.convertTool(topicsController());
 
-    assertThat(specifications).hasSize(17);
-    List<McpSchema.Tool> tools = List.of(
-        new McpSchema.Tool(
-            "recreateTopic",
-            "recreateTopic",
-            new McpSchema.JsonSchema("object", Map.of(
-                "clusterName", Map.of("type", "string"),
-                "topicName", Map.of("type", "string")
-            ), List.of("clusterName", "topicName"), false, null, null)
-        ),
-        new McpSchema.Tool(
-            "getTopicConfigs",
-            "getTopicConfigs",
-            new McpSchema.JsonSchema("object", Map.of(
-                "clusterName", Map.of("type", "string"),
-                "topicName", Map.of("type", "string")
-            ), List.of("clusterName", "topicName"), false, null, null)
-        ),
-        new McpSchema.Tool(
-            "cloneTopic",
-            "cloneTopic",
-            new McpSchema.JsonSchema("object", Map.of(
-                "clusterName", Map.of("type", "string"),
-                "topicName", Map.of("type", "string"),
-                "newTopicName", Map.of("type", "string")
-            ), List.of("clusterName", "topicName", "newTopicName"), false, null, null)
-        ),
-        new McpSchema.Tool(
-            "getTopics",
-            "getTopics",
-            new McpSchema.JsonSchema("object", Map.of(
-                "clusterName", Map.of("type", "string"),
-                "page", Map.of("type", "integer"),
-                "perPage", Map.of("type", "integer"),
-                "showInternal", Map.of("type", "boolean"),
-                "search", Map.of("type", "string"),
-                "orderBy", SCHEMA_GENERATOR.generateSchema(TopicColumnsToSortDTO.class),
-                "sortOrder", SCHEMA_GENERATOR.generateSchema(SortOrderDTO.class),
-                "fts", Map.of("type", "boolean")
-            ), List.of("clusterName"), false, null, null)
-        ),
-        new McpSchema.Tool(
-            "updateTopic",
-            "updateTopic",
-            new McpSchema.JsonSchema("object", Map.of(
-                "clusterName", Map.of("type", "string"),
-                "topicName", Map.of("type", "string"),
-                "topicUpdate", SCHEMA_GENERATOR.generateSchema(TopicUpdateDTO.class)
-            ), List.of("clusterName", "topicName", "topicUpdate"), false, null, null)
-        )
-    );
-    assertThat(tools).allMatch(tool ->
-        specifications.stream().anyMatch(s -> s.tool().equals(tool))
-    );
+    assertThat(specifications).hasSize(19);
+    List<McpSchema.Tool> tools =
+        List.of(
+            tool(
+                "recreateTopic",
+                "recreateTopic",
+                new McpSchema.JsonSchema(
+                    "object",
+                    Map.of(
+                        "clusterName", Map.of("type", "string"),
+                        "topicName", Map.of("type", "string")),
+                    List.of("clusterName", "topicName"),
+                    false,
+                    null,
+                    null)),
+            tool(
+                "getTopicConfigs",
+                "getTopicConfigs",
+                new McpSchema.JsonSchema(
+                    "object",
+                    Map.of(
+                        "clusterName", Map.of("type", "string"),
+                        "topicName", Map.of("type", "string")),
+                    List.of("clusterName", "topicName"),
+                    false,
+                    null,
+                    null)),
+            tool(
+                "cloneTopic",
+                "cloneTopic",
+                new McpSchema.JsonSchema(
+                    "object",
+                    Map.of(
+                        "clusterName", Map.of("type", "string"),
+                        "topicName", Map.of("type", "string"),
+                        "newTopicName", Map.of("type", "string")),
+                    List.of("clusterName", "topicName", "newTopicName"),
+                    false,
+                    null,
+                    null)),
+            tool(
+                "getTopics",
+                "getTopics",
+                new McpSchema.JsonSchema(
+                    "object",
+                    Map.of(
+                        "clusterName", Map.of("type", "string"),
+                        "page", Map.of("type", "integer"),
+                        "perPage", Map.of("type", "integer"),
+                        "showInternal", Map.of("type", "boolean"),
+                        "search", Map.of("type", "string"),
+                        "orderBy", SCHEMA_GENERATOR.generateSchema(TopicColumnsToSortDTO.class),
+                        "sortOrder", SCHEMA_GENERATOR.generateSchema(SortOrderDTO.class),
+                        "fts", Map.of("type", "boolean")),
+                    List.of("clusterName"),
+                    false,
+                    null,
+                    null)),
+            tool(
+                "getTopicDataProfile",
+                "getTopicDataProfile",
+                new McpSchema.JsonSchema(
+                    "object",
+                    Map.of(
+                        "clusterName", Map.of("type", "string"),
+                        "topicName", Map.of("type", "string"),
+                        "sampleLimit", Map.of("type", "integer")),
+                    List.of("clusterName", "topicName"),
+                    false,
+                    null,
+                    null)),
+            tool(
+                "updateTopic",
+                "updateTopic",
+                new McpSchema.JsonSchema(
+                    "object",
+                    Map.of(
+                        "clusterName", Map.of("type", "string"),
+                        "topicName", Map.of("type", "string"),
+                        "topicUpdate", SCHEMA_GENERATOR.generateSchema(TopicUpdateDTO.class)),
+                    List.of("clusterName", "topicName", "topicUpdate"),
+                    false,
+                    null,
+                    null)));
+    assertThat(tools)
+        .allMatch(tool -> specifications.stream().anyMatch(s -> s.tool().equals(tool)));
   }
 
   @Test
@@ -123,35 +170,41 @@ class McpSpecificationGeneratorTest {
     ClustersStorage storage = readOnlyClusterStorage();
     McpSpecificationGenerator generator = generatorWith(storage);
 
-    AsyncToolSpecification createTopic = findTool(generator.convertTool(topicsController()), "createTopic");
+    AsyncToolSpecification createTopic =
+        findTool(generator.convertTool(topicsController()), "createTopic");
 
     StepVerifier.create(invokeTool(createTopic, Map.of("clusterName", "readonly-cluster")))
-        .assertNext(result -> {
-          assertThat(result.isError()).isTrue();
-          assertThat(((McpSchema.TextContent) result.content().get(0)).text()).contains("read-only");
-        })
+        .assertNext(
+            result -> {
+              assertThat(result.isError()).isTrue();
+              assertThat(((McpSchema.TextContent) result.content().get(0)).text())
+                  .contains("read-only");
+            })
         .verifyComplete();
   }
 
   @Test
   void writeOperationNotBlockedOnNonReadOnlyCluster() {
-    KafkaCluster normalCluster = KafkaCluster.builder().name("normal-cluster").readOnly(false).build();
+    KafkaCluster normalCluster =
+        KafkaCluster.builder().name("normal-cluster").readOnly(false).build();
     ClustersStorage storage = mock(ClustersStorage.class);
     when(storage.getClusterByName(eq("normal-cluster"))).thenReturn(Optional.of(normalCluster));
 
     McpSpecificationGenerator generator = generatorWith(storage);
-    AsyncToolSpecification createTopic = findTool(generator.convertTool(topicsController()), "createTopic");
+    AsyncToolSpecification createTopic =
+        findTool(generator.convertTool(topicsController()), "createTopic");
 
     StepVerifier.create(invokeTool(createTopic, Map.of("clusterName", "normal-cluster")))
-        .assertNext(result -> {
-          // Proceeds past read-only check — may fail for other reasons in test context
-          if (result.isError()) {
-            String text = ((McpSchema.TextContent) result.content().get(0)).text();
-            if (text != null) {
-              assertThat(text).doesNotContain("read-only");
-            }
-          }
-        })
+        .assertNext(
+            result -> {
+              // Proceeds past read-only check — may fail for other reasons in test context
+              if (result.isError()) {
+                String text = ((McpSchema.TextContent) result.content().get(0)).text();
+                if (text != null) {
+                  assertThat(text).doesNotContain("read-only");
+                }
+              }
+            })
         .verifyComplete();
   }
 
@@ -160,18 +213,21 @@ class McpSpecificationGeneratorTest {
     ClustersStorage storage = readOnlyClusterStorage();
     McpSpecificationGenerator generator = generatorWith(storage);
 
-    AsyncToolSpecification getTopics = findTool(generator.convertTool(topicsController()), "getTopics");
+    AsyncToolSpecification getTopics =
+        findTool(generator.convertTool(topicsController()), "getTopics");
 
     StepVerifier.create(invokeTool(getTopics, Map.of("clusterName", "readonly-cluster")))
-        .assertNext(result -> {
-          // Read ops are not blocked — result may error from mocked dependencies but not from read-only check
-          if (result.isError()) {
-            String text = ((McpSchema.TextContent) result.content().get(0)).text();
-            if (text != null) {
-              assertThat(text).doesNotContain("read-only");
-            }
-          }
-        })
+        .assertNext(
+            result -> {
+              // Read ops are not blocked — result may error from mocked dependencies but not from
+              // read-only check
+              if (result.isError()) {
+                String text = ((McpSchema.TextContent) result.content().get(0)).text();
+                if (text != null) {
+                  assertThat(text).doesNotContain("read-only");
+                }
+              }
+            })
         .verifyComplete();
   }
 
@@ -181,18 +237,21 @@ class McpSpecificationGeneratorTest {
     McpSpecificationGenerator generator = generatorWith(storage);
 
     // analyzeTopic is in READ_ONLY_SAFE_OPERATIONS — must not be blocked on readonly cluster
-    AsyncToolSpecification analyzeTopic = findTool(generator.convertTool(topicsController()), "analyzeTopic");
+    AsyncToolSpecification analyzeTopic =
+        findTool(generator.convertTool(topicsController()), "analyzeTopic");
 
-    StepVerifier.create(invokeTool(analyzeTopic,
-        Map.of("clusterName", "readonly-cluster", "topicName", "test-topic")))
-        .assertNext(result -> {
-          if (result.isError()) {
-            String text = ((McpSchema.TextContent) result.content().get(0)).text();
-            if (text != null) {
-              assertThat(text).doesNotContain("read-only");
-            }
-          }
-        })
+    StepVerifier.create(
+            invokeTool(
+                analyzeTopic, Map.of("clusterName", "readonly-cluster", "topicName", "test-topic")))
+        .assertNext(
+            result -> {
+              if (result.isError()) {
+                String text = ((McpSchema.TextContent) result.content().get(0)).text();
+                if (text != null) {
+                  assertThat(text).doesNotContain("read-only");
+                }
+              }
+            })
         .verifyComplete();
   }
 
@@ -202,39 +261,44 @@ class McpSpecificationGeneratorTest {
     when(storage.getClusterByName(eq("unknown-cluster"))).thenReturn(Optional.empty());
 
     McpSpecificationGenerator generator = generatorWith(storage);
-    AsyncToolSpecification createTopic = findTool(generator.convertTool(topicsController()), "createTopic");
+    AsyncToolSpecification createTopic =
+        findTool(generator.convertTool(topicsController()), "createTopic");
 
     StepVerifier.create(invokeTool(createTopic, Map.of("clusterName", "unknown-cluster")))
-        .assertNext(result -> {
-          // Unknown cluster is not read-only — proceeds to controller
-          if (result.isError()) {
-            String text = ((McpSchema.TextContent) result.content().get(0)).text();
-            if (text != null) {
-              assertThat(text).doesNotContain("read-only");
-            }
-          }
-        })
+        .assertNext(
+            result -> {
+              // Unknown cluster is not read-only — proceeds to controller
+              if (result.isError()) {
+                String text = ((McpSchema.TextContent) result.content().get(0)).text();
+                if (text != null) {
+                  assertThat(text).doesNotContain("read-only");
+                }
+              }
+            })
         .verifyComplete();
   }
 
   @Test
   void writeOperationWithoutClusterNameReturnsError() {
     McpSpecificationGenerator generator = generatorWith(mock(ClustersStorage.class));
-    AsyncToolSpecification createTopic = findTool(generator.convertTool(topicsController()), "createTopic");
+    AsyncToolSpecification createTopic =
+        findTool(generator.convertTool(topicsController()), "createTopic");
 
     StepVerifier.create(invokeTool(createTopic, Map.of()))
-        .assertNext(result -> {
-          assertThat(result.isError()).isTrue();
-          assertThat(((McpSchema.TextContent) result.content().get(0)).text())
-              .contains("clusterName is required");
-        })
+        .assertNext(
+            result -> {
+              assertThat(result.isError()).isTrue();
+              assertThat(((McpSchema.TextContent) result.content().get(0)).text())
+                  .contains("clusterName is required");
+            })
         .verifyComplete();
   }
 
   // --- helpers ---
 
   private static ClustersStorage readOnlyClusterStorage() {
-    KafkaCluster readOnlyCluster = KafkaCluster.builder().name("readonly-cluster").readOnly(true).build();
+    KafkaCluster readOnlyCluster =
+        KafkaCluster.builder().name("readonly-cluster").readOnly(true).build();
     ClustersStorage storage = mock(ClustersStorage.class);
     when(storage.getClusterByName(eq("readonly-cluster"))).thenReturn(Optional.of(readOnlyCluster));
     return storage;
@@ -247,7 +311,8 @@ class McpSpecificationGeneratorTest {
         .orElseThrow(() -> new AssertionError("Tool not found: " + name));
   }
 
-  private static Mono<CallToolResult> invokeTool(AsyncToolSpecification spec, Map<String, Object> args) {
+  private static Mono<CallToolResult> invokeTool(
+      AsyncToolSpecification spec, Map<String, Object> args) {
     return spec.call()
         .apply(mock(McpAsyncServerExchange.class), new HashMap<>(args))
         .contextWrite(Context.of(ServerWebExchange.class, mock(ServerWebExchange.class)));
