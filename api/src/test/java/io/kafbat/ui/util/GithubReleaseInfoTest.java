@@ -31,18 +31,18 @@ class GithubReleaseInfoTest {
             {
               "published_at": "2023-03-09T16:11:31Z",
               "tag_name": "v0.6.0",
-              "html_url": "https://github.com/kafbat/kafka-ui/releases/tag/v0.6.0",
+              "html_url": "https://github.com/joelpjoji-mns/kafka-ui/releases/tag/v0.6.0",
               "some_unused_prop": "ololo"
             }
             """));
-    var url = mockWebServer.url("repos/kafbat/kafka-ui/releases/latest").toString();
+    var url = mockWebServer.url("repos/joelpjoji-mns/kafka-ui/releases/latest").toString();
 
     var infoHolder = new GithubReleaseInfo(url, 10);
     infoHolder.refresh().block();
 
     var i = infoHolder.get();
     assertThat(i.html_url())
-        .isEqualTo("https://github.com/kafbat/kafka-ui/releases/tag/v0.6.0");
+        .isEqualTo("https://github.com/joelpjoji-mns/kafka-ui/releases/tag/v0.6.0");
     assertThat(i.published_at())
         .isEqualTo("2023-03-09T16:11:31Z");
     assertThat(i.tag_name())
