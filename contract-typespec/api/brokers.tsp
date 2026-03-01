@@ -51,7 +51,7 @@ interface BrokersApi {
     @query broker?: int32[],
   ): BrokersLogdirs[];
 
-  @patch(#{implicitOptionality: true})
+  @patch
   @route("/{id}/logdirs")
   @operationId("updateBrokerTopicPartitionLogDir")
   @summary("updateBrokerTopicPartitionLogDir")
