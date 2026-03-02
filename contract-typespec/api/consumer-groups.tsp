@@ -75,6 +75,16 @@ interface ConsumerGroupsApi {
     @body reset: ConsumerGroupOffsetsReset,
   ): void;
 
+  @post
+  @route("/{id}/offsets/preview")
+  @operationId("previewConsumerGroupOffsetsReset")
+  @summary("previewConsumerGroupOffsetsReset")
+  previewConsumerGroupOffsetsReset(
+    @path clusterName: string,
+    @path id: string,
+    @body reset: ConsumerGroupOffsetsReset,
+  ): ConsumerGroupOffsetsResetPreview;
+
   @delete
   @route("/{id}/topics/{topicName}")
   @operationId("deleteConsumerGroupOffsets")
@@ -149,6 +159,26 @@ model ConsumerGroupOffsetsReset {
   partitions?: int32[];
   resetToTimestamp?: int64;
   partitionsOffsets?: PartitionOffset[];
+  @doc("Wait up to 60 seconds for an active consumer group to become inactive before resetting offsets.")
+  waitForInactive?: boolean;
+}
+
+model ConsumerGroupOffsetsResetPreview {
+  topic: string;
+  resetType: ConsumerGroupOffsetsResetType;
+  partitions: ConsumerGroupOffsetsResetPartitionPreview[];
+}
+
+model ConsumerGroupOffsetsResetPartitionPreview {
+  partition: int32;
+  currentCommittedOffset?: int64;
+  requestedOffset?: int64;
+  targetOffset: int64;
+  logStartOffset: int64;
+  logEndOffset: int64;
+  impact: ConsumerGroupOffsetResetImpact;
+  affectedMessages?: int64;
+  targetAdjusted: boolean;
 }
 
 model ConsumerGroupsLagResponse {
@@ -171,6 +201,13 @@ enum ConsumerGroupOffsetsResetType {
   LATEST,
   TIMESTAMP,
   OFFSET,
+}
+
+enum ConsumerGroupOffsetResetImpact {
+  REPLAY,
+  SKIP,
+  NONE,
+  UNKNOWN,
 }
 
 model ConsumerGroupTopicPartition {
