@@ -57,6 +57,14 @@ interface ConnectorsApi {
   ): FullConnectorInfo[];
 
   @get
+  @route("/triage")
+  @operationId("getConnectorTriage")
+  @summary("getConnectorTriage")
+  getConnectorTriage(
+    @path clusterName: string,
+  ): ConnectorTriageSnapshot;
+
+  @get
   @operationId("getAllConnectorsCsv")
   @summary("getAllConnectorsCsv")
   @route("/csv")
@@ -320,6 +328,43 @@ model FullConnectorInfo {
   tasksCount?: integer;
   failedTasksCount?: integer;
   consumer?: string | null;
+}
+
+enum ConnectorTriageSeverity {
+  HEALTHY,
+  WARNING,
+  CRITICAL,
+}
+
+model ConnectorTriageTask {
+  id: int32;
+  state: ConnectorTaskStatus;
+  traceExcerpt?: string;
+}
+
+model ConnectorTriageConnector {
+  connect: string;
+  name: string;
+  connectorState: ConnectorState;
+  severity: ConnectorTriageSeverity;
+  tasksCount: int32;
+  failedTasksCount: int32;
+  failedTasks: ConnectorTriageTask[];
+  traceExcerpt?: string;
+}
+
+model ConnectorTriageSummary {
+  totalConnectors: int32;
+  healthyConnectors: int32;
+  warningConnectors: int32;
+  criticalConnectors: int32;
+  failedTasks: int32;
+}
+
+model ConnectorTriageSnapshot {
+  collectedAtMs: int64;
+  summary: ConnectorTriageSummary;
+  connectors: ConnectorTriageConnector[];
 }
 
 enum ConnectorColumnsToSort {
