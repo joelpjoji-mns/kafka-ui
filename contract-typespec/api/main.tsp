@@ -13,6 +13,10 @@ import "./auth.tsp";
 import "./config.tsp";
 import "./graphs.tsp";
 import "./prometheus.tsp";
+import "./operations.tsp";
+import "./audit.tsp";
+import "./topic-governance.tsp";
+import "./record-explorer.tsp";
 
 import "@typespec/http";
 import "@typespec/rest";
@@ -22,12 +26,11 @@ using TypeSpec.OpenAPI;
 using Http;
 using Rest;
 
-@service(#{ title: "Kafbat UI Api Service" })
+@service(#{ title: "Custom Kafka UI API" })
 @info(#{
-  contact: #{ name: "API Support", email: "support@kafbat.io" },
   license: #{ name: "Apache 2.0", url: "https://www.apache.org/licenses/LICENSE-2.0.html" },
   version: "0.2.0"
 })
-@server("http://localhost:8080", "Default endpoint for Kafbat UI API")
+@server("http://localhost:8080", "Default endpoint for Custom Kafka UI API")
 namespace Api;
 
