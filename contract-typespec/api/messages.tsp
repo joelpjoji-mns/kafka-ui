@@ -58,6 +58,16 @@ interface MessagesApi {
   ): void | ApiNotFoundResponse | ApiBadRequestResponse;
 
   @post
+  @route("/messages/preview")
+  @operationId("previewTopicMessage")
+  @summary("Validate a topic message without producing it")
+  previewTopicMessage(
+    @path clusterName: string,
+    @path topicName: string,
+    @body message: CreateTopicMessage,
+  ): MessageValidationPreview | ApiNotFoundResponse | ApiBadRequestResponse;
+
+  @post
   @route("/smartfilters")
   @operationId("registerFilter")
   @summary("registerFilter")
@@ -81,6 +91,7 @@ interface MessagesApi {
     @query smartFilterId?: string,
     @query offset?: int64,
     @query timestamp?: int64,
+    @query timestampTo?: int64,
     @query keySerde?: string,
     @query valueSerde?: string,
     @query cursor?: string,
@@ -95,7 +106,7 @@ interface MessagesApi {
     @path topicName: string,
     @query limit?: int32,
     @query partitions?: int32[],
-    @query stringFilter?: string,
+    @query stringFilter?: string[],
     @query smartFilterId?: string,
     @query keySerde?: string,
     @query valueSerde?: string,
@@ -242,6 +253,38 @@ model CreateTopicMessage {
   valueSerde?: string | null;
   keySerdeProperties?: Record<unknown>;
   valueSerdeProperties?: Record<unknown>;
+}
+
+@doc("The result of serializing a message with the selected serdes without sending it to Kafka.")
+model MessageValidationPreview {
+  @doc("True when both supplied fields serialized successfully. Kafka delivery is not attempted.")
+  canSerialize: boolean;
+  errors?: string[];
+  key: MessageFieldValidation;
+  value: MessageFieldValidation;
+}
+
+model MessageFieldValidation {
+  @doc("VALIDATED means the selected serde supplied schema metadata and serialization succeeded. SERIALIZED means serialization succeeded but no schema metadata was available.")
+  status: MessageValidationStatus;
+  serde?: string;
+  serializedBytes?: int64;
+  schema?: MessageSchemaEvidence;
+  errors?: string[];
+}
+
+enum MessageValidationStatus {
+  VALIDATED,
+  SERIALIZED,
+  SKIPPED,
+  INVALID,
+}
+
+model MessageSchemaEvidence {
+  subject?: string;
+  id?: int32;
+  version?: string;
+  type?: string;
 }
 
 enum MessageFormat {
