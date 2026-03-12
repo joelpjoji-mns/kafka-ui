@@ -78,6 +78,16 @@ interface SchemasApi {
     @path version: int32,
   ): SchemaSubject;
 
+  @get
+  @route("/{subject}/versions/{version}/impact")
+  @operationId("getSchemaImpact")
+  @summary("getSchemaImpact")
+  getSchemaImpact(
+    @path clusterName: string,
+    @path subject: string,
+    @path version: int32,
+  ): SchemaImpact;
+
   @delete
   @route("/{subject}/versions/{version}")
   @operationId("deleteSchemaByVersion")
@@ -147,6 +157,33 @@ model SchemaSubject {
   schemaType: SchemaType;
   references?: SchemaReference[];
   topic?: string | null;
+}
+
+model SchemaImpact {
+  @doc("False when the cluster does not have a Schema Registry configured.")
+  available: boolean;
+  unavailableReason?: string;
+  schema?: SchemaSubject;
+  topics?: SchemaImpactTopic[];
+  references?: SchemaImpactReference[];
+  connectors?: SchemaImpactConnector[];
+}
+
+model SchemaImpactTopic {
+  name: string;
+}
+
+model SchemaImpactReference {
+  name: string;
+  subject: string;
+  version: int32;
+  accessible: boolean;
+}
+
+model SchemaImpactConnector {
+  connect: string;
+  name: string;
+  topics?: string[];
 }
 
 model NewSchemaSubject {
