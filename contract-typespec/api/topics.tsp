@@ -84,6 +84,25 @@ interface TopicsApi {
   ): void | ApiNotFoundResponse;
 
   @get
+  @route("/{topicName}/data-profile")
+  @operationId("getTopicDataProfile")
+  @summary("getTopicDataProfile")
+  getTopicDataProfile(
+    @path clusterName: string,
+    @path topicName: string,
+    @query sampleLimit?: int32,
+  ): TopicDataProfile | ApiNotFoundResponse;
+
+  @get
+  @route("/{topicName}/developer-insights")
+  @operationId("getTopicDeveloperInsights")
+  @summary("Developer-ready operational report for a topic")
+  getTopicDeveloperInsights(
+    @path clusterName: string,
+    @path topicName: string,
+  ): TopicDeveloperInsights | ApiNotFoundResponse;
+
+  @get
   @route("/{topicName}")
   @operationId("getTopicDetails")
   @summary("getTopicDetails")
@@ -102,7 +121,7 @@ interface TopicsApi {
     | ApiNotFoundResponse
     | ApiBadRequestResponse;
 
-  @patch(#{implicitOptionality: true})
+  @patch
   @route("/{topicName}")
   @operationId("updateTopic")
   @summary("updateTopic")
@@ -130,7 +149,7 @@ interface TopicsApi {
     @path topicName: string,
   ): TopicConfig[];
 
-  @patch(#{ implicitOptionality: true })
+  @patch
   @route("/{topicName}/replications")
   @operationId("changeReplicationFactor")
   @summary("changeReplicationFactor")
@@ -149,7 +168,7 @@ interface TopicsApi {
     @path topicName: string,
   ): TopicProducerState[];
 
-  @patch(#{ implicitOptionality: true })
+  @patch
   @route("/{topicName}/partitions")
   @summary("increaseTopicPartitions")
   @operationId("increaseTopicPartitions")
@@ -266,6 +285,67 @@ model TopicAnalysisSizeStats {
   prctl999?: int64;
 }
 
+model TopicDataProfile {
+  sampled: boolean;
+  sampledAtMs: int64;
+  sampleLimit: int32;
+  sampleLimitReached: boolean;
+  sampledRecords: int32;
+  totalPartitions: int32;
+  sampledPartitions: int32;
+  key: TopicDataProfileField;
+  value: TopicDataProfileField;
+  headers: TopicDataProfileHeaders;
+  json: TopicDataProfileJson;
+}
+
+model TopicDataProfileField {
+  presentCount: int32;
+  nullCount: int32;
+  size: TopicDataProfileSize;
+}
+
+model TopicDataProfileSize {
+  observedCount: int32;
+  minBytes?: int64;
+  maxBytes?: int64;
+  averageBytes?: int64;
+  p95Bytes?: int64;
+}
+
+model TopicDataProfileHeaders {
+  recordsWithHeaders: int32;
+  totalHeaders: int32;
+  names: TopicDataProfileHeader[];
+}
+
+model TopicDataProfileHeader {
+  name: string;
+  occurrenceCount: int32;
+}
+
+model TopicDataProfileJson {
+  parsedValueCount: int32;
+  objectValueCount: int32;
+  topLevelFields: TopicDataProfileJsonField[];
+}
+
+model TopicDataProfileJsonField {
+  name: string;
+  presentCount: int32;
+  nullCount: int32;
+  types: TopicDataProfileJsonType[];
+}
+
+enum TopicDataProfileJsonType {
+  NULL,
+  BOOLEAN,
+  NUMBER,
+  STRING,
+  ARRAY,
+  OBJECT,
+}
+
 model TopicProducerState {
   partition?: int32;
   producerId?: int64;
@@ -357,4 +437,59 @@ model Replica {
   broker?: int32;
   leader?: boolean;
   inSync?: boolean;
+}
+
+enum TopicDeveloperHealth {
+  HEALTHY,
+  ATTENTION,
+  CRITICAL,
+}
+
+enum TopicDeveloperMetricCategory {
+  HEALTH,
+  TOPOLOGY,
+  STORAGE,
+  CONFIGURATION,
+  TRAFFIC,
+  CONSUMERS,
+  INTEGRATIONS,
+}
+
+enum TopicDeveloperMetricTone {
+  NEUTRAL,
+  SUCCESS,
+  WARNING,
+  CRITICAL,
+  INFO,
+}
+
+enum TopicDeveloperRecommendationSeverity {
+  INFO,
+  WARNING,
+  CRITICAL,
+}
+
+model TopicDeveloperMetric {
+  id: string;
+  category: TopicDeveloperMetricCategory;
+  label: string;
+  value: string;
+  detail?: string;
+  tone: TopicDeveloperMetricTone;
+}
+
+model TopicDeveloperRecommendation {
+  id: string;
+  severity: TopicDeveloperRecommendationSeverity;
+  title: string;
+  detail: string;
+  action?: string;
+}
+
+model TopicDeveloperInsights {
+  generatedAtMs: int64;
+  healthScore: int32;
+  health: TopicDeveloperHealth;
+  metrics: TopicDeveloperMetric[];
+  recommendations: TopicDeveloperRecommendation[];
 }
