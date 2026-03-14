@@ -16,7 +16,7 @@ node {
     pnpmVersion = project.property("pnpm_version").toString()
 }
 
-def typeSpecVersion = "1.0.0"
+def typeSpecVersion = "1.15.0"
 
 sourceSets {
     main {
