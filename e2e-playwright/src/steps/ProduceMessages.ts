@@ -146,7 +146,6 @@ Given('TopicName menu button clicked for topic starts with: {string}', async fun
   await this.locators.topicTopicName.dotsMenuForTopic(topicName).click();
 });
 
-
 When('TopicName menu RecreateTopic clicked', async function(this: PlaywrightWorld) {
     await this.locators.topicTopicName.menuItemRecreateTopic.click();
     await this.locators.topicTopicName.confirm.click();
