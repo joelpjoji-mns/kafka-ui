@@ -13,6 +13,9 @@ export default {
   ],
   coverageReporters: ['json', 'lcov', 'text', 'clover'],
   resolver: '<rootDir>/.jest/resolver.js',
+  moduleNameMapper: {
+    '^jsonpath-plus$': '<rootDir>/node_modules/jsonpath-plus/dist/index-node-cjs.cjs',
+  },
   setupFilesAfterEnv: ['<rootDir>/src/setupTests.ts'],
   testMatch: [
     '<rootDir>/src/**/__{test,tests}__/**/*.{spec,test}.{js,jsx,ts,tsx}',
@@ -23,7 +26,7 @@ export default {
     '^.+\\.css$': '<rootDir>/.jest/cssTransform.js',
   },
   transformIgnorePatterns: [
-    '[/\\\\]node_modules[/\\\\].+\\.(js|jsx|mjs|cjs|ts|tsx)$',
+    '[/\\\\]node_modules[/\\\\](?!(?:\\.pnpm[/\\\\][^/\\\\]+[/\\\\]node_modules[/\\\\])?(?:parse-ms|pretty-ms)[/\\\\]).+\\.(js|jsx|mjs|cjs|ts|tsx)$',
     '^.+\\.module\\.(css|sass|scss)$',
   ],
   modulePaths: ['<rootDir>/src'],
