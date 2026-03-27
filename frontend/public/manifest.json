@@ -1,5 +1,6 @@
 {
-  "name": "Kafbat UI",
+  "name": "Custom Kafka UI",
+  "short_name": "Custom Kafka",
   "icons": [
     {
       "src": "/favicon/icon-192.png",
