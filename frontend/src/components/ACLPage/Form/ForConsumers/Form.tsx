@@ -1,5 +1,4 @@
 import React, { FC, useContext } from 'react';
-import { yupResolver } from '@hookform/resolvers/yup';
 import { FormProvider, useForm } from 'react-hook-form';
 import { ClusterName } from 'lib/interfaces/cluster';
 import { useCreateConsumersAcl } from 'lib/hooks/api/acl';
@@ -12,6 +11,7 @@ import useTopicsOptions from 'components/ACLPage/lib/useTopicsOptions';
 import useConsumerGroupsOptions from 'components/ACLPage/lib/useConsumerGroupsOptions';
 import ACLFormContext from 'components/ACLPage/Form/AclFormContext';
 import MatchTypeSelector from 'components/ACLPage/Form/components/MatchTypeSelector';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 import formSchema from './schema';
 import { toRequest } from './lib';
@@ -23,7 +23,7 @@ const ForConsumersForm: FC<AclDetailedFormProps> = ({ formRef }) => {
   const create = useCreateConsumersAcl(clusterName);
   const methods = useForm<FormValues>({
     mode: 'all',
-    resolver: yupResolver(formSchema),
+    resolver: typedYupResolver<FormValues>(formSchema),
   });
 
   const { setValue } = methods;
