@@ -1,5 +1,4 @@
 import React, { FC, useContext } from 'react';
-import { yupResolver } from '@hookform/resolvers/yup';
 import { FormProvider, useForm } from 'react-hook-form';
 import { useCreateCustomAcl } from 'lib/hooks/api/acl';
 import ControlledRadio from 'components/common/Radio/ControlledRadio';
@@ -11,6 +10,7 @@ import * as S from 'components/ACLPage/Form/Form.styled';
 import ACLFormContext from 'components/ACLPage/Form/AclFormContext';
 import { AclDetailedFormProps } from 'components/ACLPage/Form/types';
 import { ClusterName } from 'lib/interfaces/cluster';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 import formSchema from './schema';
 import { FormValues } from './types';
@@ -27,7 +27,7 @@ const CustomACLForm: FC<AclDetailedFormProps> = ({ formRef }) => {
 
   const methods = useForm<FormValues>({
     mode: 'all',
-    resolver: yupResolver(formSchema),
+    resolver: typedYupResolver<FormValues>(formSchema),
     defaultValues: { ...defaultValues },
   });
 
