@@ -1,5 +1,4 @@
 import React, { FC, useContext } from 'react';
-import { yupResolver } from '@hookform/resolvers/yup';
 import { useCreateProducerAcl } from 'lib/hooks/api/acl';
 import { FormProvider, useForm } from 'react-hook-form';
 import useAppParams from 'lib/hooks/useAppParams';
@@ -12,6 +11,7 @@ import { AclDetailedFormProps, MatchType } from 'components/ACLPage/Form/types';
 import useTopicsOptions from 'components/ACLPage/lib/useTopicsOptions';
 import ACLFormContext from 'components/ACLPage/Form/AclFormContext';
 import MatchTypeSelector from 'components/ACLPage/Form/components/MatchTypeSelector';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 import { toRequest } from './lib';
 import { FormValues } from './types';
@@ -21,7 +21,7 @@ const ForProducersForm: FC<AclDetailedFormProps> = ({ formRef }) => {
   const context = useContext(ACLFormContext);
   const methods = useForm<FormValues>({
     mode: 'all',
-    resolver: yupResolver(formSchema),
+    resolver: typedYupResolver<FormValues>(formSchema),
   });
   const { setValue } = methods;
 
