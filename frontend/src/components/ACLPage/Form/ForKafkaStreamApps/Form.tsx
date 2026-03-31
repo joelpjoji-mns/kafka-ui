@@ -1,6 +1,5 @@
 import React, { FC, useContext } from 'react';
 import { FormProvider, useForm } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
 import { ClusterName } from 'lib/interfaces/cluster';
 import { useCreateStreamAppAcl } from 'lib/hooks/api/acl';
 import useAppParams from 'lib/hooks/useAppParams';
@@ -10,6 +9,7 @@ import * as S from 'components/ACLPage/Form/Form.styled';
 import { AclDetailedFormProps } from 'components/ACLPage/Form/types';
 import useTopicsOptions from 'components/ACLPage/lib/useTopicsOptions';
 import ACLFormContext from 'components/ACLPage/Form/AclFormContext';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 import { toRequest } from './lib';
 import formSchema from './schema';
@@ -19,7 +19,7 @@ const ForKafkaStreamAppsForm: FC<AclDetailedFormProps> = ({ formRef }) => {
   const context = useContext(ACLFormContext);
   const methods = useForm<FormValues>({
     mode: 'all',
-    resolver: yupResolver(formSchema),
+    resolver: typedYupResolver<FormValues>(formSchema),
   });
 
   const { clusterName } = useAppParams<{ clusterName: ClusterName }>();
