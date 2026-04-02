@@ -1,7 +1,7 @@
 import { RefObject } from 'react';
 
 export interface AclDetailedFormProps {
-  formRef: RefObject<HTMLFormElement> | null;
+  formRef: RefObject<HTMLFormElement | null> | null;
 }
 
 export interface ACLFormProps {
