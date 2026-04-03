@@ -9,7 +9,6 @@ import {
 } from 'lib/paths';
 import PageLoader from 'components/common/PageLoader/PageLoader';
 import { ThemeProvider } from 'styled-components';
-import { theme, darkTheme } from 'theme/theme';
 import {
   MutationCache,
   QueryCache,
@@ -64,12 +63,12 @@ const queryClient = new QueryClient({
   },
 });
 const App: React.FC = () => {
-  const { isDarkMode } = useContext(ThemeModeContext);
+  const { activeTheme } = useContext(ThemeModeContext);
   const isAuthRoute = useMatch('/login');
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={isDarkMode ? darkTheme : theme}>
+      <ThemeProvider theme={activeTheme}>
         {isAuthRoute ? (
           <AuthPage />
         ) : (
