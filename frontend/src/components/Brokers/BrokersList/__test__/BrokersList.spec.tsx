@@ -81,7 +81,7 @@ describe('BrokersList Component', () => {
         await userEvent.click(screen.getByRole('cell', { name: '100' }));
 
         await waitFor(() =>
-          expect(mockedUsedNavigate).toBeCalledWith(
+          expect(mockedUsedNavigate).toHaveBeenCalledWith(
             clusterBrokerPath(clusterName, '100')
           )
         );
@@ -267,7 +267,7 @@ describe('BrokersList Component', () => {
         await userEvent.click(screen.getByRole('cell', { name: '100' }));
 
         await waitFor(() =>
-          expect(mockedUsedNavigate).toBeCalledWith(
+          expect(mockedUsedNavigate).toHaveBeenCalledWith(
             clusterBrokerPath(clusterName, '100')
           )
         );
