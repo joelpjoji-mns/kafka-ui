@@ -5,6 +5,10 @@ import { ClusterFeaturesEnum } from 'generated-sources';
 import {
   clusterBrokerRelativePath,
   clusterConsumerGroupsRelativePath,
+  clusterOperationsRelativePath,
+  clusterTopicGovernanceRelativePath,
+  clusterAuditRelativePath,
+  clusterRecordExplorerRelativePath,
   clusterKsqlDbRelativePath,
   ClusterNameRoute,
   clusterSchemasRelativePath,
@@ -36,6 +40,18 @@ const ClusterConfigPage = React.lazy(
 );
 const ConsumerGroups = React.lazy(
   () => import('components/ConsumerGroups/ConsumerGroups')
+);
+const OperationsCenter = React.lazy(
+  () => import('components/OperationsCenter/OperationsCenter')
+);
+const TopicGovernance = React.lazy(
+  () => import('components/TopicGovernance/TopicGovernance')
+);
+const AuditExplorer = React.lazy(
+  () => import('components/AuditExplorer/AuditExplorer')
+);
+const RecordExplorer = React.lazy(
+  () => import('components/RecordExplorer/RecordExplorer')
 );
 const AclPage = React.lazy(() => import('components/ACLPage/ACLPage'));
 
@@ -92,6 +108,22 @@ const ClusterPage: React.FC = () => {
             <Route
               path={getNonExactPath(clusterConsumerGroupsRelativePath)}
               element={<ConsumerGroups />}
+            />
+            <Route
+              path={clusterOperationsRelativePath}
+              element={<OperationsCenter />}
+            />
+            <Route
+              path={clusterTopicGovernanceRelativePath}
+              element={<TopicGovernance />}
+            />
+            <Route
+              path={clusterAuditRelativePath}
+              element={<AuditExplorer />}
+            />
+            <Route
+              path={clusterRecordExplorerRelativePath}
+              element={<RecordExplorer />}
             />
             {contextValue.hasSchemaRegistryConfigured && (
               <Route
