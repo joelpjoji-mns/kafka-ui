@@ -2,7 +2,6 @@ import React from 'react';
 import useAppParams from 'lib/hooks/useAppParams';
 import { Controller, useForm } from 'react-hook-form';
 import { ErrorMessage } from '@hookform/error-message';
-import { yupResolver } from '@hookform/resolvers/yup';
 import { RouterParamsClusterConnectConnector } from 'lib/paths';
 import yup from 'lib/yupExtended';
 import Editor from 'components/common/Editor/Editor';
@@ -11,6 +10,7 @@ import {
   useConnectorConfig,
   useUpdateConnectorConfig,
 } from 'lib/hooks/api/kafkaConnect';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 import {
   ConnectEditWarningMessageStyled,
@@ -38,7 +38,7 @@ const Config: React.FC = () => {
     setValue,
   } = useForm<FormValues>({
     mode: 'onChange',
-    resolver: yupResolver(validationSchema),
+    resolver: typedYupResolver<FormValues>(validationSchema),
     defaultValues: {
       config: JSON.stringify(config, null, '\t'),
     },
