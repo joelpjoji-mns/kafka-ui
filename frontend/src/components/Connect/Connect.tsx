@@ -5,6 +5,8 @@ import {
   ClusterNameRoute,
   kafkaConnectClustersPath,
   kafkaConnectClustersRelativePath,
+  kafkaConnectTriagePath,
+  kafkaConnectTriageRelativePath,
   clusterConnectorsRelativePath,
 } from 'lib/paths';
 import useAppParams from 'lib/hooks/useAppParams';
@@ -14,6 +16,7 @@ import { TableProvider } from 'components/common/NewTable';
 
 import Connectors from './List/ListPage';
 import Header from './Header/Header';
+import Triage from './Triage/Triage';
 
 const Connect: React.FC = () => {
   const { clusterName } = useAppParams<ClusterNameRoute>();
@@ -36,6 +39,13 @@ const Connect: React.FC = () => {
         >
           Connectors
         </NavLink>
+        <NavLink
+          to={kafkaConnectTriagePath(clusterName)}
+          className={({ isActive }) => (isActive ? 'is-active' : '')}
+          end
+        >
+          Triage
+        </NavLink>
       </Navbar>
       <Routes>
         <Route
@@ -46,6 +56,7 @@ const Connect: React.FC = () => {
         />
         <Route path={kafkaConnectClustersRelativePath} element={<Clusters />} />
         <Route path={clusterConnectorsRelativePath} element={<Connectors />} />
+        <Route path={kafkaConnectTriageRelativePath} element={<Triage />} />
       </Routes>
     </TableProvider>
   );
