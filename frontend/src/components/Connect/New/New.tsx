@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import useAppParams from 'lib/hooks/useAppParams';
 import { Controller, FormProvider, useForm } from 'react-hook-form';
 import { ErrorMessage } from '@hookform/error-message';
-import { yupResolver } from '@hookform/resolvers/yup';
 import {
   clusterConnectConnectorPath,
   clusterConnectorsPath,
@@ -19,6 +18,7 @@ import Heading from 'components/common/heading/Heading.styled';
 import { useConnects, useCreateConnector } from 'lib/hooks/api/kafkaConnect';
 import { Connect } from 'generated-sources';
 import ResourcePageHeading from 'components/common/ResourcePageHeading/ResourcePageHeading';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 import * as S from './New.styled';
 
@@ -42,7 +42,7 @@ const New: React.FC = () => {
 
   const methods = useForm<FormValues>({
     mode: 'all',
-    resolver: yupResolver(validationSchema),
+    resolver: typedYupResolver<FormValues>(validationSchema),
     defaultValues: {
       connectName: connects.length > 0 ? connects[0].name : '',
       name: '',
