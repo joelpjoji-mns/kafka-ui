@@ -11,6 +11,7 @@ import {
   clusterConnectorsRelativePath,
   ClusterNameRoute,
   kafkaConnectClustersRelativePath,
+  kafkaConnectTriageRelativePath,
 } from 'lib/paths';
 import React from 'react';
 import { exportTableCSV, useTableInstance } from 'components/common/NewTable';
@@ -19,7 +20,8 @@ import ExportIcon from 'components/common/Icons/ExportIcon';
 
 type ConnectPage =
   | typeof kafkaConnectClustersRelativePath
-  | typeof clusterConnectorsRelativePath;
+  | typeof clusterConnectorsRelativePath
+  | typeof kafkaConnectTriageRelativePath;
 
 const getCsvPrefix = (page: ConnectPage) => {
   let prefix = 'kafka-connect';
@@ -30,6 +32,10 @@ const getCsvPrefix = (page: ConnectPage) => {
 
   if (page === kafkaConnectClustersRelativePath) {
     prefix += '-clusters';
+  }
+
+  if (page === kafkaConnectTriageRelativePath) {
+    prefix += '-triage';
   }
 
   return prefix;
@@ -75,9 +81,15 @@ const Header = () => {
         />
       )}
 
-      <Button buttonType="secondary" buttonSize="M" onClick={handleExportClick}>
-        <ExportIcon /> Export CSV
-      </Button>
+      {currentPath !== kafkaConnectTriageRelativePath && (
+        <Button
+          buttonType="secondary"
+          buttonSize="M"
+          onClick={handleExportClick}
+        >
+          <ExportIcon /> Export CSV
+        </Button>
+      )}
     </ResourcePageHeading>
   );
 };
