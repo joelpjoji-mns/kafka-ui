@@ -17,6 +17,9 @@ jest.mock('components/Connect/New/New', () => () => (
 jest.mock('components/Connect/List/ListPage', () => () => (
   <div>{ConnectCompText.list}</div>
 ));
+jest.mock('components/Connect/Triage/Triage', () => () => (
+  <div>Triage Page</div>
+));
 jest.mock('components/Connect/Details/DetailsPage', () => () => (
   <div>{ConnectCompText.details}</div>
 ));
@@ -55,5 +58,7 @@ describe('Connect', () => {
       name: 'Connectors',
     });
     expect(connectorsNavigation).toBeInTheDocument();
+
+    expect(screen.getByRole('link', { name: 'Triage' })).toBeInTheDocument();
   });
 });
