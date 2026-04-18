@@ -17,6 +17,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { ErrorMessage } from '@hookform/error-message';
 import { InputLabel } from 'components/common/Input/InputLabel.styled';
 import { Button } from 'components/common/Button/Button';
+import Checkbox from 'components/common/Checkbox/Checkbox';
 import Input from 'components/common/Input/Input';
 import { FormError } from 'components/common/Input/Input.styled';
 import useAppParams from 'lib/hooks/useAppParams';
@@ -118,6 +119,11 @@ const Form: React.FC<FormProps> = ({ defaultValues, partitions, topics }) => {
             placeholder="Select Reset Type"
             options={resetTypeOptions}
           />
+          <Checkbox
+            name="waitForInactive"
+            label="Wait for an active consumer group to become inactive"
+            hint="The reset waits up to 60 seconds and never pauses or removes consumers."
+          />
           <div>
             <InputLabel>Partitions</InputLabel>
             <MultiSelect
@@ -140,9 +146,8 @@ const Form: React.FC<FormProps> = ({ defaultValues, partitions, topics }) => {
                   rules={{
                     required: 'Timestamp is required',
                   }}
-                  render={({ field: { onChange, onBlur, value, ref } }) => (
+                  render={({ field: { onChange, onBlur, value } }) => (
                     <S.DatePickerInput
-                      ref={ref}
                       showTimeInput
                       timeInputLabel="Time:"
                       dateFormat="MMMM d, yyyy h:mm aa"
