@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import DatePicker from 'react-datepicker';
+import SingleDatePicker from 'components/common/SingleDatePicker/SingleDatePicker';
 
 export const OffsetsWrapper = styled.div`
   display: flex;
@@ -8,12 +8,13 @@ export const OffsetsWrapper = styled.div`
   gap: 16px;
 `;
 
-export const DatePickerInput = styled(DatePicker)`
+export const DatePickerInput = styled(SingleDatePicker)`
   height: 40px;
   border: 1px ${({ theme }) => theme.select.borderColor.normal} solid;
   border-radius: 4px;
   font-size: 14px;
-  width: 270px;
+  width: min(270px, 100%);
+  box-sizing: border-box;
   padding-left: 12px;
   background-color: ${({ theme }) => theme.input.backgroundColor.normal};
   color: ${({ theme }) => theme.input.color.normal};
