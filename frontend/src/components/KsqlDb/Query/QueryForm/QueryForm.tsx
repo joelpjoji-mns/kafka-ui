@@ -10,11 +10,11 @@ import {
 import { Button } from 'components/common/Button/Button';
 import IconButtonWrapper from 'components/common/Icons/IconButtonWrapper';
 import CloseCircleIcon from 'components/common/Icons/CloseCircleIcon';
-import { yupResolver } from '@hookform/resolvers/yup';
 import yup from 'lib/yupExtended';
 import PlusIcon from 'components/common/Icons/PlusIcon';
 import ReactAce from 'react-ace';
 import Input from 'components/common/Input/Input';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 import * as S from './QueryForm.styled';
 
@@ -51,7 +51,7 @@ const QueryForm: React.FC<QueryFormProps> = ({
 }) => {
   const methods = useForm<FormValues>({
     mode: 'onTouched',
-    resolver: yupResolver(validationSchema),
+    resolver: typedYupResolver<FormValues>(validationSchema),
     defaultValues: {
       ksql: '',
       streamsProperties: [{ key: '', value: '' }],
