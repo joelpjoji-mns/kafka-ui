@@ -9,6 +9,10 @@ import {
   clusterConnectsPath,
   clusterConnectorsPath,
   clusterConsumerGroupsPath,
+  clusterOperationsPath,
+  clusterTopicGovernancePath,
+  clusterAuditPath,
+  clusterRecordExplorerPath,
   clusterKsqlDbPath,
   clusterSchemasPath,
   clusterTopicsPath,
@@ -89,6 +93,26 @@ const ClusterMenu: FC<ClusterMenuProps> = ({
             isActive={getIsMenuItemActive(clusterConsumerGroupsPath(name))}
             to={clusterConsumerGroupsPath(name)}
             title="Consumers"
+          />
+          <MenuItem
+            isActive={getIsMenuItemActive(clusterOperationsPath(name))}
+            to={clusterOperationsPath(name)}
+            title="Operations"
+          />
+          <MenuItem
+            isActive={getIsMenuItemActive(clusterRecordExplorerPath(name))}
+            to={clusterRecordExplorerPath(name)}
+            title="Record Explorer"
+          />
+          <MenuItem
+            isActive={getIsMenuItemActive(clusterTopicGovernancePath(name))}
+            to={clusterTopicGovernancePath(name)}
+            title="Topic Governance"
+          />
+          <MenuItem
+            isActive={getIsMenuItemActive(clusterAuditPath(name))}
+            to={clusterAuditPath(name)}
+            title="Audit Explorer"
           />
           {hasFeatureConfigured(ClusterFeaturesEnum.SCHEMA_REGISTRY) && (
             <MenuItem
