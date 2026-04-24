@@ -30,7 +30,6 @@ const MenuColorPicker = ({ setColorKey }: MenuColorPickerProps) => {
   return (
     <Dropdown
       aria-label="Color Picker Dropdown"
-      offsetY={5}
       label={<ColorPickerIcon />}
     >
       <S.Container>
