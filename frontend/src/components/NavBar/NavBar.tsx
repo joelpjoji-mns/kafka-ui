@@ -3,14 +3,10 @@ import Select from 'components/common/Select/Select';
 import Logo from 'components/common/Logo/Logo';
 import Version from 'components/Version/Version';
 import GitHubIcon from 'components/common/Icons/GitHubIcon';
-import DiscordIcon from 'components/common/Icons/DiscordIcon';
-import AutoIcon from 'components/common/Icons/AutoIcon';
-import SunIcon from 'components/common/Icons/SunIcon';
-import MoonIcon from 'components/common/Icons/MoonIcon';
 import { ThemeModeContext } from 'components/contexts/ThemeModeContext';
-import ProductHuntIcon from 'components/common/Icons/ProductHuntIcon';
 import { Button } from 'components/common/Button/Button';
 import MenuIcon from 'components/common/Icons/MenuIcon';
+import { GIT_REPO_LINK } from 'lib/constants';
 
 import { UserTimezone } from './UserTimezone/UserTimezone';
 import UserInfo from './UserInfo/UserInfo';
@@ -20,35 +16,55 @@ interface Props {
   onBurgerClick: () => void;
 }
 
-export type ThemeDropDownValue = 'auto_theme' | 'light_theme' | 'dark_theme';
+export type ThemeDropDownValue =
+  | 'auto_theme'
+  | 'light_theme'
+  | 'dark_theme'
+  | 'midnight_theme'
+  | 'harbor_theme'
+  | 'ember_theme'
+  | 'amoled_theme'
+  | 'glass_theme';
+
+const themeOption = (label: string, primary: string, secondary?: string) => (
+  <S.ThemeOption>
+    <S.ThemeSwatch $primary={primary} $secondary={secondary} />
+    <span>{label}</span>
+  </S.ThemeOption>
+);
 
 const options = [
   {
-    label: (
-      <>
-        <AutoIcon />
-        <div>Auto theme</div>
-      </>
-    ),
+    label: themeOption('Auto', '#FFFFFF', '#171A1C'),
     value: 'auto_theme',
   },
   {
-    label: (
-      <>
-        <SunIcon />
-        <div>Light theme</div>
-      </>
-    ),
+    label: themeOption('Light', '#FFFFFF'),
     value: 'light_theme',
   },
   {
-    label: (
-      <>
-        <MoonIcon />
-        <div>Dark theme</div>
-      </>
-    ),
+    label: themeOption('Dark', '#171A1C'),
     value: 'dark_theme',
+  },
+  {
+    label: themeOption('Midnight', '#171717', '#F4C95D'),
+    value: 'midnight_theme',
+  },
+  {
+    label: themeOption('Harbor', '#F7FBFC', '#006D77'),
+    value: 'harbor_theme',
+  },
+  {
+    label: themeOption('Ember', '#FFFFFF', '#9C2F1A'),
+    value: 'ember_theme',
+  },
+  {
+    label: themeOption('AMOLED', '#000000', '#E8E8E8'),
+    value: 'amoled_theme',
+  },
+  {
+    label: themeOption('Glass', '#D8F0E4', '#F6E7CF'),
+    value: 'glass_theme',
   },
 ];
 
@@ -65,7 +81,7 @@ const NavBar: React.FC<Props> = ({ onBurgerClick }) => {
 
           <S.Hyperlink to="/">
             <Logo />
-            kafbat UI
+            Custom Kafka UI
           </S.Hyperlink>
 
           <S.NavbarItem>
@@ -77,25 +93,19 @@ const NavBar: React.FC<Props> = ({ onBurgerClick }) => {
         <UserTimezone />
 
         <Select
+          aria-label="Theme selection"
           options={options}
           value={themeMode}
           onChange={setThemeMode}
           isThemeMode
         />
-        <S.SocialLink href="https://github.com/kafbat/kafka-ui" target="_blank">
+        <S.SocialLink
+          href={GIT_REPO_LINK}
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Custom Kafka UI on GitHub"
+        >
           <GitHubIcon />
-        </S.SocialLink>
-        <S.SocialLink
-          href="https://discord.com/invite/4DWzD7pGE5"
-          target="_blank"
-        >
-          <DiscordIcon />
-        </S.SocialLink>
-        <S.SocialLink
-          href="https://producthunt.com/products/ui-for-apache-kafka"
-          target="_blank"
-        >
-          <ProductHuntIcon />
         </S.SocialLink>
         <UserInfo />
       </S.NavbarSocial>
