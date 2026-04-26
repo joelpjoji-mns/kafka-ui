@@ -1,8 +1,6 @@
 import styled, { css } from 'styled-components';
 import { Link } from 'react-router-dom';
-import DiscordIcon from 'components/common/Icons/DiscordIcon';
 import GitHubIcon from 'components/common/Icons/GitHubIcon';
-import ProductHuntIcon from 'components/common/Icons/ProductHuntIcon';
 
 export const Navbar = styled.nav(
   ({ theme }) => css`
@@ -16,6 +14,9 @@ export const Navbar = styled.nav(
     right: 0;
     z-index: 30;
     background-color: ${theme.menu.header.backgroundColor};
+    backdrop-filter: ${theme.effects.surfaceBackdropFilter};
+    -webkit-backdrop-filter: ${theme.effects.surfaceBackdropFilter};
+    box-shadow: ${theme.effects.surfaceShadow};
     min-height: 3.25rem;
   `
 );
@@ -30,37 +31,21 @@ export const NavbarBrand = styled.div`
 `;
 
 export const SocialLink = styled.a(
-  ({ theme: { icons } }) => css`
+  ({ theme }) => css`
     display: block;
     margin-top: 5px;
     cursor: pointer;
-    fill: ${icons.discord.normal};
+    fill: ${theme.layout.socialLink};
 
     &:hover {
-      ${DiscordIcon} {
-        fill: ${icons.discord.hover};
-      }
-
       ${GitHubIcon} {
-        fill: ${icons.github.hover};
-      }
-
-      ${ProductHuntIcon} {
-        fill: ${icons.producthunt.hover};
+        fill: ${theme.icons.github.hover};
       }
     }
 
     &:active {
-      ${DiscordIcon} {
-        fill: ${icons.discord.active};
-      }
-
       ${GitHubIcon} {
-        fill: ${icons.github.active};
-      }
-
-      ${ProductHuntIcon} {
-        fill: ${icons.producthunt.active};
+        fill: ${theme.icons.github.active};
       }
     }
   `
@@ -71,6 +56,27 @@ export const NavbarSocial = styled.div`
   align-items: center;
   gap: 10px;
   margin: 5px 10px 5px;
+`;
+
+export const ThemeOption = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+export const ThemeSwatch = styled.span<{
+  $primary: string;
+  $secondary?: string;
+}>`
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 1px solid ${({ theme }) => theme.select.borderColor.normal};
+  border-radius: 50%;
+  background: ${({ $primary, $secondary }) =>
+    $secondary
+      ? `linear-gradient(135deg, ${$primary} 0 50%, ${$secondary} 50% 100%)`
+      : $primary};
 `;
 
 export const NavbarItem = styled.div`
