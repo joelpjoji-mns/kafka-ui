@@ -8,7 +8,7 @@ Versatile, fast and lightweight web UI for managing Apache Kafka® clusters.
 <div align="center">
 <a href="https://github.com/kafbat/kafka-ui/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"/></a>
 <img src="documentation/images/free-open-source.svg" alt="price free"/>
-<a href="https://github.com/kafbat/kafka-ui/releases"><img src="https://img.shields.io/github/v/release/kafbat/kafka-ui" alt="latest release version"/></a>
+<a href="https://github.com/joelpjoji-mns/kafka-ui/releases"><img src="https://img.shields.io/github/v/release/joelpjoji-mns/kafka-ui" alt="latest fork release version"/></a>
 <a href="https://discord.gg/4DWzD7pGE5"><img src="https://img.shields.io/discord/897805035122077716" alt="discord online number count"/></a>
 <a href="https://github.com/sponsors/kafbat"><img src="https://img.shields.io/github/sponsors/kafbat?style=flat&logo=githubsponsors&logoColor=%23EA4AAA&label=Support%20us" alt="" /></a>
 </div>
@@ -61,52 +61,57 @@ We extend our gratitude to Provectus for their past support in groundbreaking wo
 * **API Documentation (Swagger UI)** - Access full API specifications via built-in Swagger UI (can be enabled via `SWAGGER_UI_ENABLED` variable).
 * **MCP Server** - [Model Context Protocol](https://ui.docs.kafbat.io/faq/mcp) Server
 
-## Personal fork: custom Download and Upload build
+## Personal fork: custom Kafka UI build
 
-This fork is maintained as a personal custom build and is not intended to be merged back into the main Kafbat UI repository.
+This repository is a personal fork of [Kafbat UI](https://github.com/kafbat/kafka-ui). It is not intended to be merged back into the upstream Kafbat project.
 
-Extra features in this fork:
+This fork keeps the core Kafka UI experience, but it intentionally removes upstream Kafbat organization automation that is not needed for a personal build. Official DockerHub, AWS/ECR, Helm, Maven Central, Discord, feature-environment, release-drafter, and Codecov-oriented workflows were removed because they depend on upstream organization secrets or infrastructure.
 
-* **Topic Download tab** – Export Kafka messages as a ZIP, one file per message, with filenames containing offset, partition, and topic.
-* **Download controls** – Choose all partitions or specific partitions, newest/oldest windows, offset windows, timestamp windows, text filters, smart filters, and output format.
+### Extra features in this fork
+
+* **Dedicated Topic Download tab** – Export Kafka messages as a ZIP, one file per message, with filenames containing offset, partition, and topic.
+* **Advanced download controls** – Choose all partitions or specific partitions, newest/oldest windows, offset windows, timestamp windows, text filters, smart filters, key/value serdes, and output format.
 * **Download formats** – Text export, JSON metadata plus payload, or payload-only files.
-* **Topic Upload tab** – Produce message contents from a single file, multiple files, or files inside a ZIP archive.
-* **Upload parsing** – File-per-message, text-lines, NDJSON, and JSON-array parsing modes.
-* **Upload safety** – Dry-run preview, parsed message limits, optional metadata headers, extra JSON headers, and serde selection.
-* **Upload partitioning** – Broker/default partitioning, selected partition, random partition, or even round-robin over all or selected partitions.
-* **Restricted admin permission handling** – Optional cluster metadata calls are handled as non-fatal so topics can still load when some cluster-level admin permissions are unavailable.
-* **UI polish** – Responsive layout fixes, horizontal topic-tab scrolling, dark-mode card surfaces, and readable helper text for the new custom tabs.
+* **Dedicated Topic Upload tab** – Produce message contents from a single file, multiple files, or files inside a ZIP archive.
+* **Upload parsing modes** – File-per-message, text-lines, NDJSON, and JSON-array parsing.
+* **Upload safety controls** – Dry-run preview, parsed message limits, optional metadata headers, extra JSON headers, and key/value serde selection.
+* **Upload partitioning modes** – Broker/default partitioning, selected partition, random partition, or even round-robin over all or selected partitions.
+* **Restricted admin permission tolerance** – Optional Kafka cluster metadata calls are handled as non-fatal so topics can still load when some cluster-level admin permissions are unavailable.
+* **Custom UI polish** – Responsive layout fixes, horizontal topic-tab scrolling, dark-mode card surfaces, and readable helper text for the new custom tabs.
 
-### Where the custom JAR is published
+### CI/CD in this fork
 
-Use the GitHub Actions workflow named **Personal: Build Custom JAR** in [.github/workflows/custom-jar.yml](.github/workflows/custom-jar.yml).
+This fork has only two GitHub Actions workflows:
 
-This is the intended personal publishing pipeline for the fork. The upstream **Infra: Release** workflow is still present, but it also tries to publish Docker images and Helm-related release assets that are meant for the official project and may require organization secrets.
+| Workflow | File | Purpose | Secrets needed |
+| --- | --- | --- | --- |
+| **Personal: Branch CI** | [.github/workflows/branch-ci.yml](.github/workflows/branch-ci.yml) | Test a branch or pull request with backend tests and frontend compile/lint/unit tests. | None |
+| **Personal: Build Custom JAR** | [.github/workflows/custom-jar.yml](.github/workflows/custom-jar.yml) | Build and publish `kafbat-custom.jar` as an Actions artifact or GitHub Release asset. | None beyond the built-in `GITHUB_TOKEN` |
 
-Existing upstream pipelines can build a JAR, but they are not the cleanest option for this personal fork:
+### Testing a branch
 
-| Workflow | What it does | Fork recommendation |
-| --- | --- | --- |
-| **Main: Build & deploy** in [.github/workflows/main.yml](.github/workflows/main.yml) | Builds `api-<sha>.jar`, uploads it as an Actions artifact for 1 day, then tries Docker image build/publish. | Usable for a temporary artifact, but noisy because Docker publishing may fail without registry secrets. |
-| **Infra: Release** in [.github/workflows/release.yml](.github/workflows/release.yml) | Builds `api-<tag>.jar`, uploads it to a GitHub Release, archives it, then runs official Docker and Helm publishing jobs. | Can publish a release JAR, but later Docker/Helm jobs are official-project steps and may fail in this fork. |
-| **Personal: Build Custom JAR** in [.github/workflows/custom-jar.yml](.github/workflows/custom-jar.yml) | Builds the full frontend-included app and publishes `kafbat-custom.jar` as an artifact or GitHub Release asset. | Recommended for this fork because it only publishes your personal JAR and does not need DockerHub, AWS, or Helm secrets. |
+Push any branch or open a pull request. **Personal: Branch CI** will run automatically. You can also run it manually from the **Actions** tab.
 
-There are two download options:
+### Publishing a downloadable custom JAR
 
-1. **Actions artifact** – Every push to `feature/download-upload-messages` builds `kafbat-custom.jar` and stores it as an Actions artifact for 30 days.
-2. **GitHub Release asset** – Run the workflow manually and provide a release tag such as `custom-v2026.05.01-1`; the workflow creates or updates a GitHub Release and attaches `kafbat-custom.jar` as a long-lived download.
+Use **Personal: Build Custom JAR** in [.github/workflows/custom-jar.yml](.github/workflows/custom-jar.yml).
 
-To publish a personal release JAR:
+There are two publishing modes:
 
-1. Open the fork in GitHub.
+1. **Temporary Actions artifact** – Run the workflow manually and leave `release_tag` empty. It uploads `kafbat-custom.jar` as a 30-day Actions artifact.
+2. **GitHub Release asset** – Run the workflow manually with a release tag such as `custom-v2026.05.01-1`, or push a tag matching `custom-v*`. It creates or updates a GitHub Release and attaches `kafbat-custom.jar` as a long-lived download.
+
+To publish a release JAR:
+
+1. Open this fork in GitHub.
 2. Go to **Actions**.
 3. Select **Personal: Build Custom JAR**.
 4. Click **Run workflow**.
-5. Use branch `feature/download-upload-messages`.
-6. Enter a release tag like `custom-v2026.05.01-1` if you want a permanent GitHub Release download, or leave it empty for a temporary Actions artifact only.
+5. Select the branch or commit to build.
+6. Enter a release tag like `custom-v2026.05.01-1` for a permanent release asset, or leave it empty for an artifact-only build.
 7. Download `kafbat-custom.jar` from the workflow artifact or from the created GitHub Release.
 
-Run the downloaded JAR with your existing config:
+Run the downloaded JAR with your existing Kafka UI config:
 
 ```bash
 java -jar kafbat-custom.jar --spring.config.additional-location=path/to/kafka-ui-config.yaml
