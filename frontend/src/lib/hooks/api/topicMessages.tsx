@@ -42,6 +42,8 @@ interface DownloadMessagesZipProps {
   timestamp?: string;
   timestampTo?: string;
   format?: string;
+  partitionOffsets?: string;
+  partitionOffsetRanges?: string;
 }
 
 export interface UploadMessagesFileResult {
@@ -293,6 +295,8 @@ export function useDownloadMessagesZip() {
       timestamp,
       timestampTo,
       format,
+      partitionOffsets,
+      partitionOffsetRanges,
     }: DownloadMessagesZipProps) => {
       const requestParams = new URLSearchParams({
         limit: limit.toString(),
@@ -312,6 +316,8 @@ export function useDownloadMessagesZip() {
         ['timestamp', timestamp],
         ['timestampTo', timestampTo],
         ['format', format],
+        ['partitionOffsets', partitionOffsets],
+        ['partitionOffsetRanges', partitionOffsetRanges],
       ];
 
       optionalParams.forEach(([key, value]) => {

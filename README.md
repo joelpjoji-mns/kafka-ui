@@ -1,220 +1,141 @@
 <div align="center">
 <img src="documentation/images/logo_new.png" alt="logo"/>
-<h3>Kafbat UI</h3>
+<h1>Kafka-Ui-V2</h1>
 
-Versatile, fast and lightweight web UI for managing Apache Kafka® clusters.
+Personal Kafka UI build with an overpowered message Download tab, safe Upload tab, and a simple downloadable JAR release flow.
 </div>
 
 <div align="center">
-<a href="https://github.com/kafbat/kafka-ui/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"/></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"/></a>
 <img src="documentation/images/free-open-source.svg" alt="price free"/>
-<a href="https://github.com/joelpjoji-mns/kafka-ui/releases"><img src="https://img.shields.io/github/v/release/joelpjoji-mns/kafka-ui" alt="latest fork release version"/></a>
-<a href="https://discord.gg/4DWzD7pGE5"><img src="https://img.shields.io/discord/897805035122077716" alt="discord online number count"/></a>
-<a href="https://github.com/sponsors/kafbat"><img src="https://img.shields.io/github/sponsors/kafbat?style=flat&logo=githubsponsors&logoColor=%23EA4AAA&label=Support%20us" alt="" /></a>
+<a href="https://github.com/joelpjoji-mns/kafka-ui/releases"><img src="https://img.shields.io/github/v/release/joelpjoji-mns/kafka-ui?label=Kafka-Ui-V2" alt="latest fork release version"/></a>
 </div>
 
-<p align="center">
-    <a href="https://ui.docs.kafbat.io/">Documentation</a> • 
-    <a href="https://ui.docs.kafbat.io/quick-start/demo-run">Quick Start</a> • 
-    <a href="https://discord.gg/4DWzD7pGE5">Community</a>
-    <br/>
-    <a href="https://aws.amazon.com/marketplace/pp/prodview-6tdqqzzjwmejq">AWS Marketplace</a>  •
-    <a href="https://www.producthunt.com/products/ui-for-apache-kafka/reviews/new">ProductHunt</a>
-</p>
+## Why this fork exists
 
-<p align="center">
-  <img src="https://repobeats.axiom.co/api/embed/88d2bd9887380c7d86e2f986725d9af52ebad7f4.svg" alt="stats"/>
-</p>
+Kafka-Ui-V2 is my personal fork of the upstream Kafbat UI project. I needed a portable Kafka UI JAR that could be dropped into my own environments and do more than browse messages. The goal is not to replace or merge back into upstream. The goal is a practical personal build with the exact tools I wanted for day-to-day Kafka investigation:
 
-#### Kafbat UI is a free, open-source web UI to monitor and manage Apache Kafka clusters.
+* download a precise slice of topic data quickly,
+* keep every exported Kafka message as its own file,
+* upload messages back safely with dry-run previews,
+* run without upstream organization publishing secrets or infrastructure,
+* publish one simple GitHub Release asset named like `kafka-ui-v2.0.jar`.
 
-[Kafbat UI](https://kafbat.io/) is a simple tool that makes your data flows observable, helps find and troubleshoot issues faster and deliver optimal performance. Its lightweight dashboard makes it easy to track key metrics of your Kafka clusters - Brokers, Topics, Partitions, Production, and Consumption.
+This repository keeps the core Kafka UI experience and Apache 2.0 license lineage from Kafbat UI, while removing upstream-only automation such as DockerHub, AWS/ECR, Helm publishing, Maven Central, Discord/community automation, feature-environment jobs, release drafter, and Codecov workflows.
 
-<i>
-Kafbat UI, developed by <b>Kafbat</b>*, proudly carries forward the legacy of the UI Apache Kafka project.
-Our dedication is reflected in the continuous evolution of the project, ensuring adherence to its foundational vision while adapting to meet modern demands.
-We extend our gratitude to Provectus for their past support in groundbreaking work, which serves as a cornerstone for our ongoing innovation and dedication.
+## What is different in Kafka-Ui-V2
 
-<b>*</b> - The <b>Kafbat</b> team comprises key contributors from the project's inception, bringing a wealth of experience and insight to this renewed endeavor.
-</i>
+### Topic Download tab
 
-# Interface
+Kafka-Ui-V2 adds a dedicated topic Download tab for ZIP exports:
 
-![Interface](https://raw.githubusercontent.com/kafbat/kafka-ui/images/overview.gif)
+* one file per Kafka message,
+* filenames include offset, partition, and topic,
+* all partitions or selected partitions,
+* newest/oldest windows,
+* global offset windows,
+* timestamp windows and timeframes,
+* text search and smart filter support,
+* key/value serde selection,
+* text, JSON metadata, or payload-only output.
 
-# Features
+Advanced offset filters are also included:
 
-* **Topic Insights** – View essential topic details including partition count, replication status, and custom configurations.
-* **Configuration Wizard** – Set up and configure your Kafka clusters directly through the UI.
-* **Multi-Cluster Management** – Monitor and manage all your Kafka clusters in one unified interface.
-* **Metrics Dashboard** – Track key Kafka metrics in real time with a streamlined, lightweight dashboard.
-* **Kafka Brokers Overview** – Inspect brokers, including partition assignments and controller status.
-* **Consumer Group Details** – Analyze parked offsets per partition, and monitor both combined and partition-specific lag.
-* **Message Browser** – Explore messages in JSON, plain text, or Avro encoding formats. Live view is supported, enriched with user-defined CEL message filters.
-* **Dynamic Topic Management** – Create and configure new topics with flexible, real-time settings.
-* **Pluggable Authentication** – Secure your UI using OAuth 2.0 (GitHub, GitLab, Google), LDAP, or basic authentication.
-* **Cloud IAM Support** – Integrate with **GCP IAM**, **Azure IAM**, and **AWS IAM** for cloud-native identity and access management.
-* **Managed Kafka Service Support** – Full support for **Azure EventHub**, **Google Cloud Managed Service for Apache Kafka**, and **AWS Managed Streaming for Apache Kafka (MSK)**—both server-based and serverless.
-* **Custom SerDe Plugin Support** – Use built-in serializers/deserializers like AWS Glue and Smile, or create your own custom plugins.
-* **Role-Based Access Control** – [Manage granular UI permissions](https://ui.docs.kafbat.io/configuration/rbac-role-based-access-control) with RBAC.
-* **Data Masking** – [Obfuscate sensitive data](https://ui.docs.kafbat.io/configuration/data-masking) in topic messages to enhance privacy and compliance.
-* **API Documentation (Swagger UI)** - Access full API specifications via built-in Swagger UI (can be enabled via `SWAGGER_UI_ENABLED` variable).
-* **MCP Server** - [Model Context Protocol](https://ui.docs.kafbat.io/faq/mcp) Server
+* **Per-partition starting offsets** — export from different offsets in different partitions, for example partition 0 from offset 100 and partition 1 from offset 500.
+* **Per-partition offset ranges** — export inclusive ranges per partition, for example partition 0 offsets 100 through 200 and partition 1 offsets 500 through 650.
+* The message limit is a total ZIP cap across all selected partitions and ranges.
 
-## Personal fork: custom Kafka UI build
+### Topic Upload tab
 
-This repository is a personal fork of [Kafbat UI](https://github.com/kafbat/kafka-ui). It is not intended to be merged back into the upstream Kafbat project.
+Kafka-Ui-V2 adds a dedicated topic Upload tab:
 
-This fork keeps the core Kafka UI experience, but it intentionally removes upstream Kafbat organization automation that is not needed for a personal build. Official DockerHub, AWS/ECR, Helm, Maven Central, Discord, feature-environment, release-drafter, and Codecov-oriented workflows were removed because they depend on upstream organization secrets or infrastructure.
+* single file, multiple files, or ZIP upload,
+* file-per-message, text-lines, NDJSON, and JSON-array parsing,
+* dry-run preview before producing,
+* parsed message limits,
+* optional metadata headers,
+* extra JSON headers,
+* key/value serde selection,
+* broker/default partitioning,
+* selected partition,
+* random partition,
+* even round-robin across all or selected partitions.
 
-### Extra features in this fork
+### Runtime and UI polish
 
-* **Dedicated Topic Download tab** – Export Kafka messages as a ZIP, one file per message, with filenames containing offset, partition, and topic.
-* **Advanced download controls** – Choose all partitions or specific partitions, newest/oldest windows, offset windows, timestamp windows, text filters, smart filters, key/value serdes, and output format.
-* **Download formats** – Text export, JSON metadata plus payload, or payload-only files.
-* **Dedicated Topic Upload tab** – Produce message contents from a single file, multiple files, or files inside a ZIP archive.
-* **Upload parsing modes** – File-per-message, text-lines, NDJSON, and JSON-array parsing.
-* **Upload safety controls** – Dry-run preview, parsed message limits, optional metadata headers, extra JSON headers, and key/value serde selection.
-* **Upload partitioning modes** – Broker/default partitioning, selected partition, random partition, or even round-robin over all or selected partitions.
-* **Restricted admin permission tolerance** – Optional Kafka cluster metadata calls are handled as non-fatal so topics can still load when some cluster-level admin permissions are unavailable.
-* **Custom UI polish** – Responsive layout fixes, horizontal topic-tab scrolling, dark-mode card surfaces, and readable helper text for the new custom tabs.
+* Optional Kafka metadata calls tolerate restricted cluster admin permissions so topics can still load when some cluster-level operations are denied.
+* Download and Upload tabs have responsive layouts, horizontal topic-tab scrolling, dark-mode card surfaces, and readable helper text.
 
-### CI/CD in this fork
+## CI/CD in this fork
 
-This fork has only two GitHub Actions workflows:
+Only two GitHub Actions workflows are kept:
 
 | Workflow | File | Purpose | Secrets needed |
 | --- | --- | --- | --- |
-| **Personal: Branch CI** | [.github/workflows/branch-ci.yml](.github/workflows/branch-ci.yml) | Test a branch or pull request with backend tests and frontend compile/lint/unit tests. | None |
-| **Personal: Build Custom JAR** | [.github/workflows/custom-jar.yml](.github/workflows/custom-jar.yml) | Build and publish `kafbat-custom.jar` as an Actions artifact or GitHub Release asset. | None beyond the built-in `GITHUB_TOKEN` |
+| **Personal: Branch CI** | [.github/workflows/branch-ci.yml](.github/workflows/branch-ci.yml) | Tests branches and pull requests with backend tests plus frontend compile/lint/unit tests. | None |
+| **Personal: Build Custom JAR** | [.github/workflows/custom-jar.yml](.github/workflows/custom-jar.yml) | Builds a frontend-included Kafka-Ui-V2 JAR as an Actions artifact or GitHub Release asset. | None beyond `GITHUB_TOKEN` |
 
-### Testing a branch
+No Packages are published by design. The long-lived downloadable output is the JAR attached to a GitHub Release.
 
-Push any branch or open a pull request. **Personal: Branch CI** will run automatically. You can also run it manually from the **Actions** tab.
+## Version and JAR naming
 
-### Publishing a downloadable custom JAR
+Kafka-Ui-V2 releases use incremental tags like:
+
+* `kafka-ui-v2.0`
+* `kafka-ui-v2.1`
+* `kafka-ui-v2.0.1`
+
+The release JAR name matches the tag:
+
+* `kafka-ui-v2.0.jar`
+* `kafka-ui-v2.1.jar`
+* `kafka-ui-v2.0.1.jar`
+
+## Publishing a downloadable JAR
 
 Use **Personal: Build Custom JAR** in [.github/workflows/custom-jar.yml](.github/workflows/custom-jar.yml).
 
 There are two publishing modes:
 
-1. **Temporary Actions artifact** – Run the workflow manually and leave `release_tag` empty. It uploads `kafbat-custom.jar` as a 30-day Actions artifact.
-2. **GitHub Release asset** – Run the workflow manually with a release tag such as `custom-v2026.05.01-1`, or push a tag matching `custom-v*`. It creates or updates a GitHub Release and attaches `kafbat-custom.jar` as a long-lived download.
+1. **Temporary Actions artifact** — run the workflow manually and leave `release_tag` empty. It uploads a 30-day Actions artifact named like `kafka-ui-v2-dev-<short-sha>`.
+2. **GitHub Release asset** — run the workflow with a release tag such as `kafka-ui-v2.0`, or push a tag matching `kafka-ui-v*`. It creates or updates a GitHub Release and attaches a long-lived JAR named like `kafka-ui-v2.0.jar`.
 
-To publish a release JAR:
+To publish `kafka-ui-v2.0.jar`:
 
 1. Open this fork in GitHub.
 2. Go to **Actions**.
 3. Select **Personal: Build Custom JAR**.
 4. Click **Run workflow**.
 5. Select the branch or commit to build.
-6. Enter a release tag like `custom-v2026.05.01-1` for a permanent release asset, or leave it empty for an artifact-only build.
-7. Download `kafbat-custom.jar` from the workflow artifact or from the created GitHub Release.
+6. Enter `kafka-ui-v2.0` as `release_tag`.
+7. Download `kafka-ui-v2.0.jar` from the created GitHub Release.
 
-Run the downloaded JAR with your existing Kafka UI config:
-
-```bash
-java -jar kafbat-custom.jar --spring.config.additional-location=path/to/kafka-ui-config.yaml
-```
-
-
-## Feature overview
-
-<details>
-    <summary>Click here for the feature overview</summary>
-
-## Topics
-Kafbat UI makes it easy for you to create topics in your browser with just a few clicks, by pasting your own parameters, and viewing topics in the list.
-
-![Create Topic](documentation/images/Create_topic_kafka-ui.gif)
-
-You can jump from the connectors view to corresponding topics and from a topic to consumers (back and forth) for more convenient navigation, including connectors and overview topic settings.
-
-![Connector_Topic_Consumer](documentation/images/Connector_Topic_Consumer.gif)
-
-### Messages
-Suppose you want to produce messages for your topic. With Kafbat UI, you can easily send or write data/messages to Kafka topics by specifying parameters and viewing messages in the list.
-
-![Produce Message](documentation/images/Create_message_kafka-ui.gif)
-
-## Schema registry
-There are three supported types of schemas: Avro®, JSON Schema, and Protobuf schemas.
-
-![Create Schema Registry](documentation/images/Create_schema.gif)
-
-Before producing Avro/Protobuf encoded messages, you need to add a schema for the topic in the Schema Registry. All these steps are now easy to do with just a few clicks in a user-friendly interface.
-
-![Avro Schema Topic](documentation/images/Schema_Topic.gif)
-
-</details>
-
-# Getting Started
-
-To run Kafbat UI, you can use either a pre-built Docker image or build it (or a jar file) yourself.
-
-## Quick start (Demo run)
+Run the downloaded JAR with your Kafka UI config:
 
 ```bash
-docker run -it -p 8080:8080 -e DYNAMIC_CONFIG_ENABLED=true -e SWAGGER_UI_ENABLED=true ghcr.io/kafbat/kafka-ui
+java -jar kafka-ui-v2.0.jar --spring.config.additional-location=path/to/kafka-ui-config.yaml
 ```
 
-Then access the web UI at [http://localhost:8080](http://localhost:8080)
+## Running locally from source
 
-This command is sufficient to try things out. When you're done, you can proceed with a [persistent installation](https://ui.docs.kafbat.io/quick-start/persistent-start).
+Build the full frontend-included JAR:
 
-## Persistent installation
-
-```yml
-services:
-  kafbat-ui:
-    container_name: kafbat-ui
-    image: ghcr.io/kafbat/kafka-ui:latest
-    ports:
-      - 8080:8080
-    environment:
-      DYNAMIC_CONFIG_ENABLED: 'true'
-      SWAGGER_UI_ENABLED: 'true'
-    volumes:
-      - ~/kui/config.yml:/etc/kafkaui/dynamic_config.yaml
+```bash
+./gradlew clean build -x test -Pinclude-frontend=true -Pversion=2.0-SNAPSHOT
 ```
 
-Please refer to our [configuration](https://ui.docs.kafbat.io/configuration/configuration-file) page to proceed with further app configuration.
+Run it:
 
-## Some useful configuration related links
+```bash
+java -jar api/build/libs/api-2.0-SNAPSHOT.jar --spring.config.additional-location=path/to/kafka-ui-config.yaml
+```
 
-[Web UI Cluster Configuration Wizard](https://ui.docs.kafbat.io/configuration/configuration-wizard)
+The app listens on the configured server port. Health is available at `/actuator/health`, and build info is available at `/actuator/info`.
 
-[Configuration file explanation](https://ui.docs.kafbat.io/configuration/configuration-file)
+## Upstream attribution
 
-[Docker Compose examples](https://ui.docs.kafbat.io/configuration/compose-examples)
+Kafka-Ui-V2 is based on Kafbat UI and preserves its Apache 2.0 licensing. The Java package names and many UI assets still carry Kafbat naming because this fork focuses on personal functionality and release packaging, not a deep package rename.
 
-[Misc configuration properties](https://ui.docs.kafbat.io/configuration/misc-configuration-properties)
+## License
 
-## Helm charts
-
-[Quick start](https://ui.docs.kafbat.io/configuration/helm-charts/quick-start)
-
-## Building from sources
-
-[Quick start](https://ui.docs.kafbat.io/development/building/prerequisites) for building from source
-
-## Liveliness and readiness probes
-The liveness and readiness endpoint is at `/actuator/health`.<br/>
-The info endpoint (build info) is located at `/actuator/info`.
-
-# Configuration options
-
-All environment variables and configuration properties can be found [here](https://ui.docs.kafbat.io/configuration/misc-configuration-properties).
-
-# Contributing
-
-Please refer to the [contributing guide](https://ui.docs.kafbat.io/development/contributing); we'll guide you from there.
-
-# Support
-
-As we're fully independent, team members contribute in their free time.
-Your support is crucial for us, if you wish to sponsor us, take a look [here](https://github.com/sponsors/kafbat)
-
-# Powered by
-
-[![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSourceSupport)
+This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
