@@ -1,0 +1,109 @@
+name: "Personal: Build Custom JAR"
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional release tag to publish, for example custom-v2026.05.01-1. Leave empty for Actions artifact only."
+        required: false
+        type: string
+  push:
+    branches:
+      - "feature/download-upload-messages"
+    tags:
+      - "custom-v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-custom-jar:
+    name: Build downloadable custom JAR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2 # https://github.com/actions/checkout/releases/tag/v4.0.0
+        with:
+          token: ${{ github.token }}
+
+      - name: Set up JDK
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # https://github.com/actions/setup-java/releases/tag/v4
+        with:
+          java-version-file: '.java-version'
+          distribution: 'zulu'
+          cache: 'gradle'
+
+      - name: Resolve build metadata
+        id: meta
+        shell: bash
+        run: |
+          release_tag="${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || '' }}"
+          if [[ -z "$release_tag" && "$GITHUB_REF_TYPE" == "tag" ]]; then
+            release_tag="$GITHUB_REF_NAME"
+          fi
+
+          if [[ -n "$release_tag" ]]; then
+            version="${release_tag#custom-v}"
+          else
+            version="custom-${GITHUB_SHA::7}"
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: $version"
+          echo "Resolved release tag: ${release_tag:-<artifact-only>}"
+
+      - name: Build custom JAR
+        run: |
+          ./gradlew clean build \
+            -x test \
+            -Pinclude-frontend=true \
+            -Pversion=${{ steps.meta.outputs.version }}
+          mkdir -p dist
+          cp "api/build/libs/api-${{ steps.meta.outputs.version }}.jar" dist/kafbat-custom.jar
+
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # https://github.com/actions/upload-artifact/releases/tag/v4
+        with:
+          name: kafbat-custom-${{ steps.meta.outputs.version }}
+          path: dist/kafbat-custom.jar
+          retention-days: 30
+
+      - name: Create or update GitHub Release
+        if: ${{ steps.meta.outputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+        shell: bash
+        run: |
+          cat > release-notes.md <<EOF
+          Custom Kafbat UI JAR for this personal fork.
+
+          Built from commit: $GITHUB_SHA
+          Source ref: $GITHUB_REF_NAME
+
+          Extra fork features:
+          - Topic Download tab with partition selection, offset/time windows, filters, and ZIP export.
+          - Topic Upload tab for single files, multiple files, and ZIP archives with dry-run preview.
+          - Upload parse modes for file-per-message, text lines, NDJSON, and JSON arrays.
+          - Upload partition strategies for broker default, selected partition, random, and even round-robin.
+          - Non-fatal handling for restricted cluster metadata calls so topics still load when optional admin permissions are missing.
+          - Responsive and dark-mode polish for the new custom tabs.
+          EOF
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/kafbat-custom.jar \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            gh release create "$RELEASE_TAG" dist/kafbat-custom.jar \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "Custom Kafbat UI $RELEASE_TAG" \
+              --notes-file release-notes.md
+          fi
