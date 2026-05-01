@@ -6,6 +6,7 @@ export const Container = styled.main<{ $isSidebarVisible: boolean }>(
     margin-left: ${$isSidebarVisible ? theme.layout.navBarWidth : 0};
     position: relative;
     padding-bottom: 30px;
+    min-height: calc(100vh - ${theme.layout.navBarHeight});
     z-index: 20;
     max-width: calc(
       100vw - ${$isSidebarVisible ? theme.layout.navBarWidth : 0}
@@ -44,6 +45,9 @@ export const Sidebar = styled.div<{ $visible: boolean }>(
       transform 0.25s,
       -webkit-transform 0.25s;
     background: ${theme.default.backgroundColor};
+    backdrop-filter: ${theme.effects.surfaceBackdropFilter};
+    -webkit-backdrop-filter: ${theme.effects.surfaceBackdropFilter};
+    box-shadow: ${theme.effects.surfaceShadow};
     transform: ${$visible ? 'translateX(0)' : 'translateX(-100%)'};
 
     @media screen and (max-width: 1024px) {
