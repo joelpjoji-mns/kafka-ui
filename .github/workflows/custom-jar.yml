@@ -4,12 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Optional release tag to publish, for example custom-v2026.05.01-1. Leave empty for Actions artifact only."
+        description: "Optional release tag to publish, for example kafka-ui-v2.0. Leave empty for Actions artifact only."
         required: false
         type: string
   push:
     tags:
-      - "custom-v*"
+      - "kafka-ui-v*"
 
 permissions:
   contents: write
@@ -46,14 +46,25 @@ jobs:
           fi
 
           if [[ -n "$release_tag" ]]; then
-            version="${release_tag#custom-v}"
+            if [[ ! "$release_tag" =~ ^kafka-ui-v[0-9]+(\.[0-9]+)*([.-][A-Za-z0-9]+)*$ ]]; then
+              echo "Release tag must look like kafka-ui-v2.0, kafka-ui-v2.1, or kafka-ui-v2.0.1" >&2
+              exit 1
+            fi
+            version="${release_tag#kafka-ui-v}"
+            jar_name="${release_tag}.jar"
+            artifact_name="$release_tag"
           else
-            version="custom-${GITHUB_SHA::7}"
+            version="2.0-${GITHUB_SHA::7}"
+            jar_name="kafka-ui-v2-dev-${GITHUB_SHA::7}.jar"
+            artifact_name="kafka-ui-v2-dev-${GITHUB_SHA::7}"
           fi
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "jar_name=$jar_name" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$artifact_name" >> "$GITHUB_OUTPUT"
           echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
           echo "Resolved version: $version"
+          echo "Resolved JAR name: $jar_name"
           echo "Resolved release tag: ${release_tag:-<artifact-only>}"
 
       - name: Build custom JAR
@@ -63,13 +74,13 @@ jobs:
             -Pinclude-frontend=true \
             -Pversion=${{ steps.meta.outputs.version }}
           mkdir -p dist
-          cp "api/build/libs/api-${{ steps.meta.outputs.version }}.jar" dist/kafbat-custom.jar
+          cp "api/build/libs/api-${{ steps.meta.outputs.version }}.jar" "dist/${{ steps.meta.outputs.jar_name }}"
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # https://github.com/actions/upload-artifact/releases/tag/v4
         with:
-          name: kafbat-custom-${{ steps.meta.outputs.version }}
-          path: dist/kafbat-custom.jar
+          name: ${{ steps.meta.outputs.artifact_name }}
+          path: dist/${{ steps.meta.outputs.jar_name }}
           retention-days: 30
 
       - name: Create or update GitHub Release
@@ -77,16 +88,26 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+          JAR_NAME: ${{ steps.meta.outputs.jar_name }}
+          VERSION: ${{ steps.meta.outputs.version }}
         shell: bash
         run: |
           cat > release-notes.md <<EOF
-          Custom Kafbat UI JAR for this personal fork.
+          Kafka-Ui-V2 downloadable JAR for this personal fork.
 
           Built from commit: $GITHUB_SHA
           Source ref: $GITHUB_REF_NAME
+          Release version: $VERSION
+          JAR asset: $JAR_NAME
 
-          Extra fork features:
+          Why this fork exists:
+          - This is a personal Kafka UI build kept separate from the upstream Kafbat project.
+          - Upstream organization publishing, Docker, Helm, cloud, community, and secret-backed workflows were removed.
+          - The fork focuses on a portable JAR with practical message download and upload tooling.
+
+          Kafka-Ui-V2 features:
           - Topic Download tab with partition selection, offset/time windows, filters, and ZIP export.
+          - Per-partition starting offsets and inclusive per-partition offset ranges for precise exports.
           - Topic Upload tab for single files, multiple files, and ZIP archives with dry-run preview.
           - Upload parse modes for file-per-message, text lines, NDJSON, and JSON arrays.
           - Upload partition strategies for broker default, selected partition, random, and even round-robin.
@@ -95,13 +116,17 @@ jobs:
           EOF
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/kafbat-custom.jar \
+            gh release upload "$RELEASE_TAG" "dist/$JAR_NAME" \
               --repo "$GITHUB_REPOSITORY" \
               --clobber
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Kafka-Ui-V2 $VERSION" \
+              --notes-file release-notes.md
           else
-            gh release create "$RELEASE_TAG" dist/kafbat-custom.jar \
+            gh release create "$RELEASE_TAG" "dist/$JAR_NAME" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "Custom Kafbat UI $RELEASE_TAG" \
+              --title "Kafka-Ui-V2 $VERSION" \
               --notes-file release-notes.md
           fi
