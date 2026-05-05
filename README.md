@@ -5,6 +5,28 @@
 Versatile, fast and lightweight web UI for managing Apache Kafka® clusters.
 </div>
 
+#### Kafbat UI is a free, open-source web UI to monitor and manage Apache Kafka clusters.
+
+## Personal fork: custom Kafka UI build
+
+This repository is a personal fork of [Kafbat UI](https://github.com/kafbat/kafka-ui). It is not intended to be merged back into the upstream Kafbat project.
+
+This fork keeps the core Kafka UI experience, but it intentionally removes upstream Kafbat organization automation that is not needed for a personal build. Official DockerHub, AWS/ECR, Helm, Maven Central, Discord, feature-environment, release-drafter, and Codecov-oriented workflows were removed because they depend on upstream organization secrets or infrastructure.
+
+### Extra features in this fork
+
+* **Dedicated Topic Download tab** – Export Kafka messages as a ZIP, one file per message, with filenames containing offset, partition, and topic.
+* **Advanced download controls** – Choose all partitions or specific partitions, newest/oldest windows, offset windows, timestamp windows, text filters, smart filters, key/value serdes, and output format.
+* **Download formats** – Text export, JSON metadata plus payload, or payload-only files.
+* **Dedicated Topic Upload tab** – Produce message contents from a single file, multiple files, or files inside a ZIP archive.
+* **Upload parsing modes** – File-per-message, text-lines, NDJSON, and JSON-array parsing.
+* **Upload safety controls** – Dry-run preview, parsed message limits, optional metadata headers, extra JSON headers, and key/value serde selection.
+* **Upload partitioning modes** – Broker/default partitioning, selected partition, random partition, or even round-robin over all or selected partitions.
+* **Restricted admin permission tolerance** – Optional Kafka cluster metadata calls are handled as non-fatal so topics can still load when some cluster-level admin permissions are unavailable.
+* **Custom UI polish** – Responsive layout fixes, horizontal topic-tab scrolling, dark-mode card surfaces, and readable helper text for the new custom tabs.
+
+
+  
 <div align="center">
 <a href="https://github.com/kafbat/kafka-ui/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License"/></a>
 <img src="documentation/images/free-open-source.svg" alt="price free"/>
@@ -21,12 +43,6 @@ Versatile, fast and lightweight web UI for managing Apache Kafka® clusters.
     <a href="https://aws.amazon.com/marketplace/pp/prodview-6tdqqzzjwmejq">AWS Marketplace</a>  •
     <a href="https://www.producthunt.com/products/ui-for-apache-kafka/reviews/new">ProductHunt</a>
 </p>
-
-<p align="center">
-  <img src="https://repobeats.axiom.co/api/embed/88d2bd9887380c7d86e2f986725d9af52ebad7f4.svg" alt="stats"/>
-</p>
-
-#### Kafbat UI is a free, open-source web UI to monitor and manage Apache Kafka clusters.
 
 [Kafbat UI](https://kafbat.io/) is a simple tool that makes your data flows observable, helps find and troubleshoot issues faster and deliver optimal performance. Its lightweight dashboard makes it easy to track key metrics of your Kafka clusters - Brokers, Topics, Partitions, Production, and Consumption.
 
@@ -61,23 +77,6 @@ We extend our gratitude to Provectus for their past support in groundbreaking wo
 * **API Documentation (Swagger UI)** - Access full API specifications via built-in Swagger UI (can be enabled via `SWAGGER_UI_ENABLED` variable).
 * **MCP Server** - [Model Context Protocol](https://ui.docs.kafbat.io/faq/mcp) Server
 
-## Personal fork: custom Kafka UI build
-
-This repository is a personal fork of [Kafbat UI](https://github.com/kafbat/kafka-ui). It is not intended to be merged back into the upstream Kafbat project.
-
-This fork keeps the core Kafka UI experience, but it intentionally removes upstream Kafbat organization automation that is not needed for a personal build. Official DockerHub, AWS/ECR, Helm, Maven Central, Discord, feature-environment, release-drafter, and Codecov-oriented workflows were removed because they depend on upstream organization secrets or infrastructure.
-
-### Extra features in this fork
-
-* **Dedicated Topic Download tab** – Export Kafka messages as a ZIP, one file per message, with filenames containing offset, partition, and topic.
-* **Advanced download controls** – Choose all partitions or specific partitions, newest/oldest windows, offset windows, timestamp windows, text filters, smart filters, key/value serdes, and output format.
-* **Download formats** – Text export, JSON metadata plus payload, or payload-only files.
-* **Dedicated Topic Upload tab** – Produce message contents from a single file, multiple files, or files inside a ZIP archive.
-* **Upload parsing modes** – File-per-message, text-lines, NDJSON, and JSON-array parsing.
-* **Upload safety controls** – Dry-run preview, parsed message limits, optional metadata headers, extra JSON headers, and key/value serde selection.
-* **Upload partitioning modes** – Broker/default partitioning, selected partition, random partition, or even round-robin over all or selected partitions.
-* **Restricted admin permission tolerance** – Optional Kafka cluster metadata calls are handled as non-fatal so topics can still load when some cluster-level admin permissions are unavailable.
-* **Custom UI polish** – Responsive layout fixes, horizontal topic-tab scrolling, dark-mode card surfaces, and readable helper text for the new custom tabs.
 
 ### CI/CD in this fork
 
@@ -214,7 +213,3 @@ Please refer to the [contributing guide](https://ui.docs.kafbat.io/development/c
 
 As we're fully independent, team members contribute in their free time.
 Your support is crucial for us, if you wish to sponsor us, take a look [here](https://github.com/sponsors/kafbat)
-
-# Powered by
-
-[![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSourceSupport)
