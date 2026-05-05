@@ -27,6 +27,7 @@ import {
 import ResourcePageHeading from 'components/common/ResourcePageHeading/ResourcePageHeading';
 import ErrorPage from 'components/ErrorPage/ErrorPage';
 
+import ImpactNavigator from './ImpactNavigator';
 import LatestVersionItem from './LatestVersion/LatestVersionItem';
 import SchemaVersion from './SchemaVersion/SchemaVersion';
 
@@ -34,6 +35,8 @@ const Details: React.FC = () => {
   const navigate = useNavigate();
   const { isReadOnly } = React.useContext(ClusterContext);
   const { clusterName, subject } = useAppParams<ClusterSubjectParam>();
+  const [impactVisible, setImpactVisible] = React.useState(false);
+  const [impactVersion, setImpactVersion] = React.useState<number | null>(null);
   const versions = useGetSchemasVersions({
     clusterName,
     subject,
@@ -47,6 +50,9 @@ const Details: React.FC = () => {
     clusterName,
     subject,
   });
+  const latestVersion = Number(schema.data?.version);
+  const canViewImpact = Number.isInteger(latestVersion) && latestVersion > 0;
+  const selectedImpactVersion = impactVersion ?? latestVersion;
 
   const columns = React.useMemo(
     () => [
@@ -87,6 +93,21 @@ const Details: React.FC = () => {
           }}
         >
           Compare Versions
+        </Button>
+        <Button
+          buttonSize="M"
+          buttonType="secondary"
+          disabled={!canViewImpact}
+          onClick={() => {
+            if (impactVisible) {
+              setImpactVisible(false);
+            } else {
+              setImpactVersion(latestVersion);
+              setImpactVisible(true);
+            }
+          }}
+        >
+          {impactVisible ? 'Hide Impact' : 'View Impact'}
         </Button>
         {!isReadOnly && (
           <>
@@ -143,12 +164,27 @@ const Details: React.FC = () => {
       {schema.isSuccess && versions.isSuccess && (
         <>
           {schema.data && <LatestVersionItem schema={schema.data} />}
+          {impactVisible && Number.isInteger(selectedImpactVersion) && (
+            <ImpactNavigator
+              clusterName={clusterName}
+              subject={subject}
+              version={selectedImpactVersion}
+            />
+          )}
           <TableTitle>Old versions</TableTitle>
           <Table
             columns={columns}
             data={versions.data || []}
             getRowCanExpand={() => true}
-            renderSubComponent={SchemaVersion}
+            renderSubComponent={(props) => (
+              <SchemaVersion
+                {...props}
+                onViewImpact={(version) => {
+                  setImpactVersion(version);
+                  setImpactVisible(true);
+                }}
+              />
+            )}
             enableSorting
           />
         </>
