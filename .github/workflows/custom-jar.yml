@@ -51,10 +51,14 @@ jobs:
             version="custom-${GITHUB_SHA::7}"
           fi
 
+          asset_name="kafka-ui-V2-${GITHUB_RUN_NUMBER}.jar"
+
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "asset_name=$asset_name" >> "$GITHUB_OUTPUT"
           echo "Resolved version: $version"
           echo "Resolved release tag: ${release_tag:-<artifact-only>}"
+          echo "Resolved asset name: $asset_name"
 
       - name: Build custom JAR
         run: |
@@ -63,13 +67,13 @@ jobs:
             -Pinclude-frontend=true \
             -Pversion=${{ steps.meta.outputs.version }}
           mkdir -p dist
-          cp "api/build/libs/api-${{ steps.meta.outputs.version }}.jar" dist/kafbat-custom.jar
+          cp "api/build/libs/api-${{ steps.meta.outputs.version }}.jar" "dist/${{ steps.meta.outputs.asset_name }}"
 
       - name: Upload JAR artifact
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # https://github.com/actions/upload-artifact/releases/tag/v4
         with:
-          name: kafbat-custom-${{ steps.meta.outputs.version }}
-          path: dist/kafbat-custom.jar
+          name: kafka-ui-V2-${{ github.run_number }}
+          path: dist/${{ steps.meta.outputs.asset_name }}
           retention-days: 30
 
       - name: Create or update GitHub Release
@@ -77,6 +81,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+          ASSET_NAME: ${{ steps.meta.outputs.asset_name }}
         shell: bash
         run: |
           cat > release-notes.md <<EOF
@@ -84,6 +89,8 @@ jobs:
 
           Built from commit: $GITHUB_SHA
           Source ref: $GITHUB_REF_NAME
+          Workflow run: $GITHUB_RUN_NUMBER
+          Release asset: $ASSET_NAME
 
           Extra fork features:
           - Topic Download tab with partition selection, offset/time windows, filters, and ZIP export.
@@ -95,13 +102,25 @@ jobs:
           EOF
 
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/kafbat-custom.jar \
-              --repo "$GITHUB_REPOSITORY" \
-              --clobber
+            gh release upload "$RELEASE_TAG" "dist/$ASSET_NAME" \
+              --repo "$GITHUB_REPOSITORY"
           else
-            gh release create "$RELEASE_TAG" dist/kafbat-custom.jar \
+            gh release create "$RELEASE_TAG" "dist/$ASSET_NAME" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
               --title "Custom Kafbat UI $RELEASE_TAG" \
               --notes-file release-notes.md
           fi
+
+      - name: Verify release asset
+        if: ${{ steps.meta.outputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+          ASSET_NAME: ${{ steps.meta.outputs.asset_name }}
+        shell: bash
+        run: |
+          gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json assets \
+            --jq '.assets[].name' | grep -Fx "$ASSET_NAME"
