@@ -1,8 +1,13 @@
 import React from 'react';
 import Details from 'components/Schemas/Details/Details';
 import { render, WithRoute } from 'lib/testHelpers';
-import { clusterSchemaPath, clusterTopicPath } from 'lib/paths';
+import {
+  clusterConnectConnectorPath,
+  clusterSchemaPath,
+  clusterTopicPath,
+} from 'lib/paths';
 import { screen } from '@testing-library/dom';
+import userEvent from '@testing-library/user-event';
 import {
   schemaVersion,
   schemaVersionWithNonAsciiChars,
@@ -14,6 +19,7 @@ import ClusterContext, {
 } from 'components/contexts/ClusterContext';
 import {
   useDeleteSchema,
+  useGetSchemaImpact,
   useGetLatestSchema,
   useGetSchemasVersions,
 } from 'lib/hooks/api/schemas';
@@ -31,6 +37,7 @@ jest.mock('react-router-dom', () => ({
 jest.mock('lib/hooks/api/schemas', () => ({
   useGetSchemasVersions: jest.fn(),
   useGetLatestSchema: jest.fn(),
+  useGetSchemaImpact: jest.fn(),
   useDeleteSchema: jest.fn(),
 }));
 
@@ -54,6 +61,37 @@ describe('Details', () => {
     // TODO test case should be added for this
     (useDeleteSchema as jest.Mock).mockImplementation(() => ({
       mutateAsync: deleteMockfn,
+    }));
+    (useGetSchemaImpact as jest.Mock).mockImplementation(() => ({
+      data: {
+        available: true,
+        schema: schemaVersionWithTopic,
+        topics: [{ name: schemaVersionWithTopic.topic }],
+        references: [
+          {
+            name: 'address',
+            subject: 'address-value',
+            version: 2,
+            accessible: true,
+          },
+          {
+            name: 'private',
+            subject: 'private-value',
+            version: 1,
+            accessible: false,
+          },
+        ],
+        connectors: [
+          {
+            connect: 'connect-a',
+            name: 'orders-sink',
+            topics: [schemaVersionWithTopic.topic],
+          },
+        ],
+      },
+      error: null,
+      isLoading: false,
+      refetch: jest.fn(),
     }));
   });
 
@@ -79,6 +117,48 @@ describe('Details', () => {
           'href',
           clusterTopicPath(clusterName, schemaVersionWithTopic.topic!)
         );
+      });
+
+      it('shows contract-backed impact links for accessible resources', async () => {
+        (useGetSchemasVersions as jest.Mock).mockImplementation(() => ({
+          data: versionPayload,
+          isFetching: false,
+          isError: false,
+          isSuccess: true,
+        }));
+        (useGetLatestSchema as jest.Mock).mockImplementation(() => ({
+          data: schemaVersionWithTopic,
+          isFetching: false,
+          isError: false,
+          isSuccess: true,
+        }));
+        renderComponent();
+
+        await userEvent.click(
+          screen.getByRole('button', { name: 'View Impact' })
+        );
+
+        expect(
+          screen.getByRole('link', { name: schemaVersionWithTopic.topic! })
+        ).toHaveAttribute(
+          'href',
+          clusterTopicPath(clusterName, schemaVersionWithTopic.topic!)
+        );
+        expect(
+          screen.getByRole('link', { name: /address-value/i })
+        ).toHaveAttribute(
+          'href',
+          clusterSchemaPath(clusterName, 'address-value')
+        );
+        expect(
+          screen.getByRole('link', { name: 'orders-sink' })
+        ).toHaveAttribute(
+          'href',
+          clusterConnectConnectorPath(clusterName, 'connect-a', 'orders-sink')
+        );
+        expect(
+          screen.queryByRole('link', { name: /private-value/i })
+        ).not.toBeInTheDocument();
       });
     });
     describe('has schema versions', () => {
