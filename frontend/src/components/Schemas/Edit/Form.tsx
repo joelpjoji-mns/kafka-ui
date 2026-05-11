@@ -18,7 +18,6 @@ import Select from 'components/common/Select/Select';
 import { Button } from 'components/common/Button/Button';
 import { InputLabel } from 'components/common/Input/InputLabel.styled';
 import useAppParams from 'lib/hooks/useAppParams';
-import { yupResolver } from '@hookform/resolvers/yup';
 import { FormError } from 'components/common/Input/Input.styled';
 import { ErrorMessage } from '@hookform/error-message';
 import {
@@ -26,6 +25,7 @@ import {
   useUpdateSchemaCompatibilityLayer,
 } from 'lib/hooks/api/schemas';
 import ResourcePageHeading from 'components/common/ResourcePageHeading/ResourcePageHeading';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 import * as S from './Edit.styled';
 
@@ -55,7 +55,7 @@ const Form: React.FC<FormProps> = ({ schema }) => {
     });
   const methods = useForm<NewSchemaSubjectRaw>({
     mode: 'onChange',
-    resolver: yupResolver(validationSchema()),
+    resolver: typedYupResolver<NewSchemaSubjectRaw>(validationSchema()),
     defaultValues: {
       schemaType: schema?.schemaType,
       compatibilityLevel:
