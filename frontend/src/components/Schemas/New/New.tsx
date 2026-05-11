@@ -18,9 +18,9 @@ import { Button } from 'components/common/Button/Button';
 import { Textarea } from 'components/common/Textbox/Textarea.styled';
 import useAppParams from 'lib/hooks/useAppParams';
 import yup from 'lib/yupExtended';
-import { yupResolver } from '@hookform/resolvers/yup';
 import { useCreateSchema } from 'lib/hooks/api/schemas';
 import ResourcePageHeading from 'components/common/ResourcePageHeading/ResourcePageHeading';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 import * as S from './New.styled';
 
@@ -51,7 +51,7 @@ const New: React.FC = () => {
     defaultValues: {
       schemaType: SchemaType.AVRO,
     },
-    resolver: yupResolver(validationSchema),
+    resolver: typedYupResolver<NewSchemaSubjectRaw>(validationSchema),
   });
   const {
     register,
