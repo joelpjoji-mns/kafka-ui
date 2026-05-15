@@ -92,10 +92,10 @@ describe('TopicTable Components', () => {
     it('renders correct rows', () => {
       renderComponent({ topics: topicsPayload, pageCount: 1 });
       expect(
-        screen.getByRole('link', { name: '__internal.topic' })
+        screen.getByRole('link', { name: 'IN __internal.topic' })
       ).toBeInTheDocument();
       expect(
-        screen.getByRole('row', { name: '__internal.topic 1 0 1 0 0 Bytes' })
+        screen.getByRole('row', { name: 'IN __internal.topic 1 0 1 0 0 Bytes' })
       ).toBeInTheDocument();
       expect(
         screen.getByRole('link', { name: 'external.topic' })
@@ -214,7 +214,7 @@ describe('TopicTable Components', () => {
         ).toEqual(2);
         // Internal topic action buttons are disabled
         const internalTopicRow = screen.getByRole('row', {
-          name: '__internal.topic 1 0 1 0 0 Bytes',
+          name: 'IN __internal.topic 1 0 1 0 0 Bytes',
         });
         expect(internalTopicRow).toBeInTheDocument();
         expect(
