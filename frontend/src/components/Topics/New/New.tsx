@@ -3,12 +3,12 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { ClusterNameRoute, clusterTopicsPath } from 'lib/paths';
 import TopicForm from 'components/Topics/shared/Form/TopicForm';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { yupResolver } from '@hookform/resolvers/yup';
 import { topicFormValidationSchema } from 'lib/yupExtended';
 import useAppParams from 'lib/hooks/useAppParams';
 import { useCreateTopic } from 'lib/hooks/api/topics';
 import { TopicFormData } from 'lib/interfaces/topic';
 import ResourcePageHeading from 'components/common/ResourcePageHeading/ResourcePageHeading';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 enum Filters {
   NAME = 'name',
@@ -22,7 +22,7 @@ const New: React.FC = () => {
   const { clusterName } = useAppParams<ClusterNameRoute>();
   const methods = useForm<TopicFormData>({
     mode: 'onChange',
-    resolver: yupResolver(topicFormValidationSchema),
+    resolver: typedYupResolver<TopicFormData>(topicFormValidationSchema),
   });
 
   const createTopic = useCreateTopic(clusterName);
