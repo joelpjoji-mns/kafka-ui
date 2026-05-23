@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-use-before-define */
+/* eslint-disable react/no-array-index-key -- refinement inputs are append-only controlled fields. */
 import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
-import { SerdeUsage } from 'generated-sources';
+import { PollingMode, SerdeUsage } from 'generated-sources';
 import styled from 'styled-components';
 import { Button } from 'components/common/Button/Button';
 import FlexBox from 'components/common/FlexBox/FlexBox';
@@ -15,6 +16,12 @@ import { useTopicDetails } from 'lib/hooks/api/topics';
 import { useDownloadMessagesZip, useSerdes } from 'lib/hooks/api/topicMessages';
 import useAppParams from 'lib/hooks/useAppParams';
 import { RouteParamsClusterTopic } from 'lib/paths';
+import {
+  MAX_MESSAGES_PER_PAGE,
+  MESSAGES_PER_PAGE,
+  MessagesFilterKeys,
+} from 'lib/constants';
+import { getMessageViewFilterSnapshot } from 'lib/messageViewFilterSnapshot';
 
 import DownloadPresets, { DownloadConfig } from './DownloadPresets';
 
@@ -74,8 +81,48 @@ const toEpochMillis = (value: string) => {
 
 const numericValue = (value: string, fallback: number) => {
   const parsed = Number(value);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.min(Math.trunc(parsed), MAX_MESSAGES_PER_PAGE)
+    : fallback;
 };
+
+const normalizeLimitInput = (value: string) => {
+  const numericInput = value.replace(/\D/g, '');
+  return numericInput
+    ? Math.min(Number(numericInput), MAX_MESSAGES_PER_PAGE).toString()
+    : '';
+};
+
+const toDateTimeLocalValue = (epochMillis: string | null) => {
+  if (!epochMillis) return '';
+
+  const timestamp = Number(epochMillis);
+  if (!Number.isFinite(timestamp)) return '';
+
+  const date = new Date(timestamp);
+  const timezoneOffset = date.getTimezoneOffset() * 60 * 1000;
+  return new Date(date.getTime() - timezoneOffset).toISOString().slice(0, 16);
+};
+
+const toPartitionOptions = (partitions: string | null): PartitionOption[] => {
+  if (!partitions) return [];
+
+  return partitions
+    .split(',')
+    .reduce<PartitionOption[]>((options, rawValue) => {
+      const partition = Number(rawValue);
+      if (Number.isInteger(partition) && partition >= 0) {
+        options.push({
+          label: `Partition #${partition}`,
+          value: partition,
+        });
+      }
+      return options;
+    }, []);
+};
+
+const isDownloadMode = (mode: string | null): mode is DownloadMode =>
+  mode !== null && downloadModeOptions.some(({ value }) => value === mode);
 
 const Download: React.FC = () => {
   const { clusterName, topicName } = useAppParams<RouteParamsClusterTopic>();
@@ -92,12 +139,12 @@ const Download: React.FC = () => {
     PartitionOption[]
   >([]);
   const [downloadMode, setDownloadMode] = useState<DownloadMode>('LATEST');
-  const [limit, setLimit] = useState('100');
+  const [limit, setLimit] = useState(MESSAGES_PER_PAGE);
   const [offset, setOffset] = useState('0');
   const [fromTime, setFromTime] = useState('');
   const [toTime, setToTime] = useState('');
   const [format, setFormat] = useState('VALUE_ONLY');
-  const [search, setSearch] = useState('');
+  const [searchFilters, setSearchFilters] = useState<string[]>([]);
   const [smartFilterId, setSmartFilterId] = useState('');
   const [keySerde, setKeySerde] = useState<string | undefined>();
   const [valueSerde, setValueSerde] = useState<string | undefined>();
@@ -123,7 +170,7 @@ const Download: React.FC = () => {
     downloadMode === 'FROM_TIMESTAMP' || downloadMode === 'TIMEFRAME';
   const isToTimeVisible =
     downloadMode === 'TO_TIMESTAMP' || downloadMode === 'TIMEFRAME';
-  const resolvedLimit = numericValue(limit, 100);
+  const resolvedLimit = numericValue(limit, Number(MESSAGES_PER_PAGE));
   const selectedPartitionValues =
     partitionMode === 'SELECTED'
       ? selectedPartitions.map(({ value }) => value)
@@ -131,6 +178,25 @@ const Download: React.FC = () => {
 
   const isSingleFileFormat = singleFileFormats.has(format);
   const downloadKind = isSingleFileFormat ? format : 'ZIP';
+  const hasMessageViewFilterSnapshot = Boolean(
+    getMessageViewFilterSnapshot(clusterName, topicName)
+  );
+  const primarySearchFilter = searchFilters[0] || '';
+  const displayedRefinementFilters = primarySearchFilter
+    ? [...searchFilters.slice(1), '']
+    : [];
+
+  const setSearchFilter = (index: number, value: string) => {
+    setSearchFilters((currentFilters) => {
+      if (!value) {
+        return index === 0 ? [] : currentFilters.slice(0, index);
+      }
+
+      const nextFilters = currentFilters.slice();
+      nextFilters[index] = value;
+      return nextFilters;
+    });
+  };
 
   const currentConfig: DownloadConfig = {
     partitionMode,
@@ -141,7 +207,7 @@ const Download: React.FC = () => {
     fromTime,
     toTime,
     format,
-    search,
+    searchFilters,
     smartFilterId,
     keySerde,
     valueSerde,
@@ -151,15 +217,65 @@ const Download: React.FC = () => {
     setPartitionMode(config.partitionMode);
     setSelectedPartitions(config.selectedPartitions ?? []);
     setDownloadMode(config.downloadMode as DownloadMode);
-    setLimit(config.limit);
+    setLimit(normalizeLimitInput(config.limit));
     setOffset(config.offset);
     setFromTime(config.fromTime);
     setToTime(config.toTime);
     setFormat(config.format);
-    setSearch(config.search);
+    setSearchFilters(config.searchFilters);
     setSmartFilterId(config.smartFilterId);
     setKeySerde(config.keySerde);
     setValueSerde(config.valueSerde);
+  };
+
+  const importMessageViewFilters = () => {
+    const snapshot = getMessageViewFilterSnapshot(clusterName, topicName);
+    if (!snapshot) return;
+
+    const importedPartitions = toPartitionOptions(
+      snapshot.get(MessagesFilterKeys.partitions)
+    );
+    const mode = snapshot.get(MessagesFilterKeys.mode);
+    const timestamp = snapshot.get(MessagesFilterKeys.timestamp);
+    const timestampTo = snapshot.get(MessagesFilterKeys.timestampTo);
+
+    setPartitionMode(importedPartitions.length ? 'SELECTED' : 'ALL');
+    setSelectedPartitions(importedPartitions);
+    setSearchFilters(
+      snapshot.getAll(MessagesFilterKeys.stringFilter).filter(Boolean)
+    );
+    setSmartFilterId(snapshot.get(MessagesFilterKeys.smartFilterId) || '');
+    setKeySerde(snapshot.get(MessagesFilterKeys.keySerde) || undefined);
+    setValueSerde(snapshot.get(MessagesFilterKeys.valueSerde) || undefined);
+    setOffset(snapshot.get(MessagesFilterKeys.offset) || '0');
+    setFromTime('');
+    setToTime('');
+
+    if (mode === PollingMode.FROM_TIMESTAMP && timestampTo) {
+      setDownloadMode('TIMEFRAME');
+      setFromTime(toDateTimeLocalValue(timestamp));
+      setToTime(toDateTimeLocalValue(timestampTo));
+      return;
+    }
+
+    if (mode === PollingMode.FROM_TIMESTAMP) {
+      setDownloadMode('FROM_TIMESTAMP');
+      setFromTime(toDateTimeLocalValue(timestamp));
+      return;
+    }
+
+    if (mode === PollingMode.TO_TIMESTAMP) {
+      setDownloadMode('TO_TIMESTAMP');
+      setToTime(toDateTimeLocalValue(timestamp));
+      return;
+    }
+
+    if (mode === PollingMode.TAILING) {
+      setDownloadMode('LATEST');
+      return;
+    }
+
+    setDownloadMode(isDownloadMode(mode) ? mode : 'LATEST');
   };
 
   const handleDownload = () => {
@@ -177,7 +293,7 @@ const Download: React.FC = () => {
       topicName,
       limit: resolvedLimit,
       partitions: selectedPartitionValues,
-      stringFilter: search || undefined,
+      stringFilters: searchFilters.length ? searchFilters : undefined,
       smartFilterId: smartFilterId || undefined,
       keySerde,
       valueSerde,
@@ -201,16 +317,26 @@ const Download: React.FC = () => {
             payloads, filters, and window controls.
           </Description>
         </div>
-        <Button
-          buttonType="primary"
-          buttonSize="M"
-          onClick={handleDownload}
-          disabled={downloadMessagesZip.isPending}
-        >
-          {downloadMessagesZip.isPending
-            ? `Preparing ${downloadKind}...`
-            : `Download ${downloadKind}`}
-        </Button>
+        <HeroActions>
+          <Button
+            buttonType="secondary"
+            buttonSize="M"
+            onClick={importMessageViewFilters}
+            disabled={!hasMessageViewFilterSnapshot}
+          >
+            Import Message View filters
+          </Button>
+          <Button
+            buttonType="primary"
+            buttonSize="M"
+            onClick={handleDownload}
+            disabled={downloadMessagesZip.isPending}
+          >
+            {downloadMessagesZip.isPending
+              ? `Preparing ${downloadKind}...`
+              : `Download ${downloadKind}`}
+          </Button>
+        </HeroActions>
       </Hero>
 
       <Grid>
@@ -270,7 +396,7 @@ const Download: React.FC = () => {
                 onChange={({
                   target: { value },
                 }: ChangeEvent<HTMLInputElement>) => {
-                  setLimit(value.replace(/\D/g, ''));
+                  setLimit(normalizeLimitInput(value));
                 }}
               />
             </Field>
@@ -367,22 +493,38 @@ const Download: React.FC = () => {
         </Card>
 
         <Card>
-          <CardTitle>4. Optional filters</CardTitle>
+          <CardTitle>4. Refine export</CardTitle>
           <FlexBox gap="12px" flexWrap="wrap" alignItems="flex-end">
             <Field>
-              <Label>Contains text</Label>
+              <Label>Search messages</Label>
               <Input
                 inputSize="M"
                 type="text"
-                value={search}
+                value={primarySearchFilter}
                 placeholder="Search payload/key/header text"
                 onChange={({
                   target: { value },
                 }: ChangeEvent<HTMLInputElement>) => {
-                  setSearch(value);
+                  setSearchFilter(0, value);
                 }}
               />
             </Field>
+            {displayedRefinementFilters.map((searchFilter, index) => (
+              <Field key={`download-refine-search-${index}`}>
+                <Label>Refine search</Label>
+                <Input
+                  inputSize="M"
+                  type="text"
+                  value={searchFilter}
+                  placeholder="Further narrow the export"
+                  onChange={({
+                    target: { value },
+                  }: ChangeEvent<HTMLInputElement>) => {
+                    setSearchFilter(index + 1, value);
+                  }}
+                />
+              </Field>
+            ))}
             <Field>
               <Label>Smart filter id</Label>
               <Input
@@ -449,14 +591,25 @@ const Hero = styled.div`
     max-width: 100%;
   }
 
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.M}px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+`;
+
+const HeroActions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+
   & > button {
-    flex: 0 0 auto;
     white-space: nowrap;
   }
 
   @media screen and (max-width: ${({ theme }) => theme.breakpoints.M}px) {
+    width: 100%;
     flex-direction: column;
-    align-items: stretch;
 
     & > button {
       width: 100%;
