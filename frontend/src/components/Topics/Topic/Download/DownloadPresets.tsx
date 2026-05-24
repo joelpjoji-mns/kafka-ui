@@ -20,21 +20,47 @@ export interface DownloadConfig {
   fromTime: string;
   toTime: string;
   format: string;
-  search: string;
+  searchFilters: string[];
   smartFilterId: string;
   keySerde?: string;
   valueSerde?: string;
 }
 
+type LegacyDownloadConfig = Omit<DownloadConfig, 'searchFilters'> & {
+  search?: unknown;
+  searchFilters?: unknown;
+};
+
 interface DownloadPreset {
   name: string;
-  config: DownloadConfig;
+  config: LegacyDownloadConfig;
 }
 
 interface DownloadPresetsProps {
   currentConfig: DownloadConfig;
   onApply: (config: DownloadConfig) => void;
 }
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0;
+
+export const normalizeDownloadConfig = (
+  config: LegacyDownloadConfig
+): DownloadConfig => {
+  const { search, searchFilters, ...settings } = config;
+  let normalizedSearchFilters: string[] = [];
+
+  if (Array.isArray(searchFilters)) {
+    normalizedSearchFilters = searchFilters.filter(isNonEmptyString);
+  } else if (isNonEmptyString(search)) {
+    normalizedSearchFilters = [search];
+  }
+
+  return {
+    ...settings,
+    searchFilters: normalizedSearchFilters,
+  };
+};
 
 const List = styled.div`
   display: flex;
@@ -108,7 +134,7 @@ const DownloadPresets: React.FC<DownloadPresetsProps> = ({
             buttonType="secondary"
             buttonSize="S"
             aria-label={`Apply preset ${preset.name}`}
-            onClick={() => onApply(preset.config)}
+            onClick={() => onApply(normalizeDownloadConfig(preset.config))}
           >
             Apply
           </Button>
