@@ -15,7 +15,7 @@ const config: DownloadConfig = {
   fromTime: '',
   toTime: '',
   format: 'CSV',
-  search: '',
+  searchFilters: [],
   smartFilterId: '',
   keySerde: 'String',
   valueSerde: 'String',
@@ -71,5 +71,33 @@ describe('DownloadPresets', () => {
 
     render(<DownloadPresets currentConfig={config} onApply={jest.fn()} />);
     expect(screen.getByText('weekly')).toBeInTheDocument();
+  });
+
+  it('applies a legacy preset search as the primary search filter', async () => {
+    const onApply = jest.fn();
+    const { searchFilters: ignoredSearchFilters, ...legacyConfig } = config;
+    localStorage.setItem(
+      'kafbat-ui-download-presets',
+      JSON.stringify([
+        {
+          name: 'legacy',
+          config: {
+            ...legacyConfig,
+            search: 'payment',
+          },
+        },
+      ])
+    );
+
+    render(<DownloadPresets currentConfig={config} onApply={onApply} />);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Apply preset legacy' })
+    );
+
+    expect(onApply).toHaveBeenCalledWith({
+      ...config,
+      searchFilters: ['payment'],
+    });
   });
 });
