@@ -3,7 +3,6 @@ import { useForm, FormProvider } from 'react-hook-form';
 import TopicForm from 'components/Topics/shared/Form/TopicForm';
 import { RouteParamsClusterTopic } from 'lib/paths';
 import { useNavigate } from 'react-router-dom';
-import { yupResolver } from '@hookform/resolvers/yup';
 import { topicFormValidationSchema } from 'lib/yupExtended';
 import useAppParams from 'lib/hooks/useAppParams';
 import topicParamsTransformer from 'components/Topics/Topic/Edit/topicParamsTransformer';
@@ -19,6 +18,7 @@ import {
 import DangerZone from 'components/Topics/Topic/Edit/DangerZone/DangerZone';
 import { ConfigSource } from 'generated-sources';
 import { TopicConfigByName, TopicFormData } from 'lib/interfaces/topic';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 export const TOPIC_EDIT_FORM_DEFAULT_PROPS = {
   partitions: 1,
@@ -47,7 +47,7 @@ const Edit: React.FC = () => {
 
   const methods = useForm<TopicFormData>({
     defaultValues,
-    resolver: yupResolver(topicFormValidationSchema),
+    resolver: typedYupResolver<TopicFormData>(topicFormValidationSchema),
     mode: 'onChange',
   });
 
