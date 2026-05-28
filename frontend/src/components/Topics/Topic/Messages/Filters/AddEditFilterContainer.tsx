@@ -7,7 +7,6 @@ import { ErrorMessage } from '@hookform/error-message';
 import { Button } from 'components/common/Button/Button';
 import { FormError } from 'components/common/Input/Input.styled';
 import Editor from 'components/common/Editor/Editor';
-import { yupResolver } from '@hookform/resolvers/yup';
 import yup from 'lib/yupExtended';
 import { useRegisterSmartFilter } from 'lib/hooks/api/topicMessages';
 import useAppParams from 'lib/hooks/useAppParams';
@@ -20,6 +19,7 @@ import {
 import { showAlert } from 'lib/errorHandling';
 import Flexbox from 'components/common/FlexBox/FlexBox';
 import { useIsMessagesSmartFilterPersisted } from 'lib/hooks/useMessagesFilters';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 import QuestionInfo from './QuestionInfo';
 
@@ -107,7 +107,9 @@ const AddEditFilterContainer: React.FC<AddEditFilterContainerProps> = ({
 
   const methods = useForm<AddMessageFilters>({
     mode: 'onTouched',
-    resolver: yupResolver(validationSchema, { context: ['name name'] }),
+    resolver: typedYupResolver<AddMessageFilters>(validationSchema, {
+      context: ['name name'],
+    }),
     context: {
       value: ['name'],
     },
