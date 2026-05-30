@@ -1,11 +1,18 @@
 import 'react-datepicker/dist/react-datepicker.css';
 
-import { SerdeUsage, PollingMode, TopicMessageConsuming } from 'generated-sources';
+/* eslint-disable react/no-array-index-key -- refinement inputs are append-only controlled fields. */
+
+import {
+  SerdeUsage,
+  PollingMode,
+  TopicMessageConsuming,
+} from 'generated-sources';
 import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import MultiSelect from 'components/common/MultiSelect/MultiSelect.styled';
 import Select, { SelectOption } from 'components/common/Select/Select';
 import { Button } from 'components/common/Button/Button';
 import Search from 'components/common/Search/Search';
+import Switch from 'components/common/Switch/Switch';
 import PlusIcon from 'components/common/Icons/PlusIcon';
 import { getSerdeOptions } from 'components/Topics/Topic/SendMessage/utils';
 import { useSerdes } from 'lib/hooks/api/topicMessages';
@@ -31,7 +38,6 @@ import {
 import FiltersSideBar from './FiltersSideBar';
 import FiltersMetrics from './FiltersMetrics';
 import TimeRangeSelector from './TimeRangeSelector';
-import PartitionCounts from './PartitionCounts';
 
 export interface FiltersProps {
   phaseMessage?: string;
@@ -41,8 +47,6 @@ export interface FiltersProps {
   stringFilters: string[];
   setStringFilter: (index: number, value: string) => void;
   resetStringFilters: () => void;
-  partitionCounts?: Record<number, number>;
-  totalMessages?: number;
 }
 
 const DEFAULT_TIME_RANGE_MS = 24 * 60 * 60 * 1000;
@@ -60,8 +64,6 @@ const Filters: React.FC<FiltersProps> = ({
   stringFilters,
   setStringFilter,
   resetStringFilters,
-  partitionCounts,
-  totalMessages,
 }) => {
   const { clusterName, topicName } = useAppParams<RouteParamsClusterTopic>();
 
@@ -78,6 +80,8 @@ const Filters: React.FC<FiltersProps> = ({
     setValueSerde,
     offset,
     setOffsetValue,
+    limit,
+    setLimit,
     search,
     setSearch,
     partitions: p,
@@ -89,6 +93,7 @@ const Filters: React.FC<FiltersProps> = ({
 
   const { data: topic } = useTopicDetails({ clusterName, topicName });
   const [createdEditedSmartId, setCreatedEditedSmartId] = useState<string>();
+  const handleTimestampChange = (value: Date | null) => setTimeStamp(value);
 
   const partitions = useMemo(() => {
     return (topic?.partitions || []).reduce<{
@@ -126,10 +131,14 @@ const Filters: React.FC<FiltersProps> = ({
     refreshData();
   };
 
+  const handleLiveUpdatesChange = () => {
+    setMode(
+      mode === PollingMode.TAILING ? PollingMode.LATEST : PollingMode.TAILING
+    );
+  };
+
   const selectedSeekMode: SeekModeValue =
-    mode === PollingMode.FROM_TIMESTAMP && timestampTo
-      ? TIME_RANGE_MODE
-      : mode;
+    mode === PollingMode.FROM_TIMESTAMP && timestampTo ? TIME_RANGE_MODE : mode;
 
   const handleModeChange = (newMode: SeekModeValue) => {
     if (newMode === TIME_RANGE_MODE) {
@@ -159,8 +168,8 @@ const Filters: React.FC<FiltersProps> = ({
 
   return (
     <FlexBox flexDirection="column" padding="0 16px">
-      <FlexBox width="100%" justifyContent="space-between" margin="10px 0 0 0">
-        <FlexBox gap="8px" alignItems="flex-end" flexWrap="wrap">
+      <S.Toolbar>
+        <S.ToolbarControls>
           <S.FilterModeTypeSelectorWrapper>
             <S.FilterModeTypeSelect
               id="selectSeekType"
@@ -196,7 +205,7 @@ const Filters: React.FC<FiltersProps> = ({
               ) : (
                 <S.DatePickerInput
                   selected={date}
-                  onChange={setTimeStamp}
+                  onChange={handleTimestampChange}
                   showTimeInput
                   timeInputLabel="Time:"
                   dateFormat="MMM d, yyyy"
@@ -205,6 +214,19 @@ const Filters: React.FC<FiltersProps> = ({
               ))
             )}
           </S.FilterModeTypeSelectorWrapper>
+          <S.LiveUpdatesControl title="New messages appear at the top">
+            <Switch
+              name="liveUpdates"
+              ariaLabel="Live updates"
+              checked={mode === PollingMode.TAILING}
+              onChange={handleLiveUpdatesChange}
+            />
+            <S.LiveUpdatesLabel>Live</S.LiveUpdatesLabel>
+            <S.LiveUpdatesIndicator
+              $active={mode === PollingMode.TAILING}
+              aria-hidden
+            />
+          </S.LiveUpdatesControl>
           <MultiSelect
             disabled={isLoading}
             options={partitions.list}
@@ -236,6 +258,22 @@ const Filters: React.FC<FiltersProps> = ({
             selectSize="M"
             placeholder="Value Serde"
           />
+          <S.MessageLimitInput
+            id="messageLimit"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={4}
+            inputSize="M"
+            value={limit}
+            aria-label="Message limit"
+            placeholder="Limit"
+            onChange={({
+              target: { value },
+            }: ChangeEvent<HTMLInputElement>) => {
+              setLimit(value.replace(/\D/g, ''));
+            }}
+          />
           <Button
             type="submit"
             buttonType="secondary"
@@ -245,16 +283,16 @@ const Filters: React.FC<FiltersProps> = ({
           >
             Refresh
           </Button>
-        </FlexBox>
+        </S.ToolbarControls>
 
-        <Search placeholder="Search" value={search} onChange={handleSearchChange} />
-      </FlexBox>
-      {partitionCounts && typeof totalMessages === 'number' && (
-        <PartitionCounts
-          partitionCounts={partitionCounts}
-          total={totalMessages}
-        />
-      )}
+        <S.ToolbarSearch>
+          <Search
+            placeholder="Search"
+            value={search}
+            onChange={handleSearchChange}
+          />
+        </S.ToolbarSearch>
+      </S.Toolbar>
       {displayedStringFilters.length > 0 && (
         <FlexBox
           width="100%"
