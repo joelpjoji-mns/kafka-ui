@@ -1,10 +1,9 @@
 import Input from 'components/common/Input/Input';
 import Select from 'components/common/Select/Select';
 import styled, { css } from 'styled-components';
-import DatePicker from 'react-datepicker';
+import SingleDatePicker from 'components/common/SingleDatePicker/SingleDatePicker';
 import EditIcon from 'components/common/Icons/EditIcon';
 import closeIcon from 'components/common/Icons/CloseIcon';
-import { PollingMode } from 'generated-sources';
 
 import { isModeOptionWithInput, isTimeRangeMode, SeekModeValue } from './utils';
 
@@ -19,11 +18,92 @@ interface MessageLoadingSpinnerProps {
   isFetching: boolean;
 }
 
+export const Toolbar = styled.div`
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 360px);
+  gap: 8px;
+  width: 100%;
+  margin: 10px 0 0;
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.M}px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+`;
+
+export const ToolbarControls = styled.div`
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    & > * {
+      flex: 1 1 100%;
+      min-width: 0;
+    }
+
+    & > button {
+      justify-content: center;
+    }
+  }
+`;
+
+export const LiveUpdatesControl = styled.div`
+  display: flex;
+  align-items: center;
+  height: 32px;
+  min-width: max-content;
+  gap: 2px;
+`;
+
+export const LiveUpdatesLabel = styled.span`
+  color: ${({ theme }) => theme.table.td.color.normal};
+  font-size: 13px;
+  font-weight: 600;
+`;
+
+export const LiveUpdatesIndicator = styled.span<{ $active: boolean }>`
+  width: 7px;
+  height: 7px;
+  margin-left: 3px;
+  border-radius: 50%;
+  background-color: ${({ $active, theme }) =>
+    $active ? theme.switch.checked : theme.switch.unchecked};
+  box-shadow: ${({ $active, theme }) =>
+    $active ? `0 0 0 3px ${theme.switch.checked}33` : 'none'};
+`;
+
+export const ToolbarSearch = styled.div`
+  min-width: 0;
+
+  & > * {
+    width: 100%;
+  }
+`;
+
+export const MessageLimitInput = styled(Input)`
+  width: 100px;
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    width: 100%;
+  }
+`;
+
 export const FilterModeTypeSelectorWrapper = styled.div`
   display: flex;
   & .select-wrapper {
     & > select {
       border-radius: 4px 0 0 4px !important;
+    }
+  }
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    width: 100%;
+
+    & > * {
+      flex: 1 1 0;
+      min-width: 0;
     }
   }
 `;
@@ -35,7 +115,7 @@ export const OffsetSelector = styled(Input)`
   }
 `;
 
-export const DatePickerInput = styled(DatePicker)`
+export const DatePickerInput = styled(SingleDatePicker)`
   height: 32px;
   border: 1px ${({ theme }) => theme.select.borderColor.normal} solid;
   border-left: none;
@@ -104,15 +184,21 @@ export const InfoParagraph = styled.div`
 
 export const InfoModal = styled.div`
   height: auto;
-  width: 560px;
+  width: min(560px, calc(100vw - 32px));
+  box-sizing: border-box;
   border-radius: 8px;
   background: ${({ theme }) => theme.modal.backgroundColor};
   position: absolute;
-  left: 25%;
+  left: 50%;
+  transform: translateX(-50%);
   border: 1px solid ${({ theme }) => theme.modal.border.contrast};
   box-shadow: ${({ theme }) => theme.modal.shadow};
   padding: 32px;
   z-index: 1;
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    padding: 16px;
+  }
 `;
 
 export const QuestionIconContainer = styled.button`
@@ -207,6 +293,7 @@ export const ActiveSmartFilter = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  max-width: 100%;
   height: 32px;
   color: ${({ theme }) => theme.activeFilter.color};
   background: ${({ theme }) => theme.activeFilter.backgroundColor};
@@ -250,6 +337,9 @@ export const EditSmartFilterIcon = styled.button(
 export const SmartFilterName = styled.div`
   padding: 0 8px;
   min-width: 32px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 `;
 
 export const DeleteSmartFilterIcon = styled.button(
