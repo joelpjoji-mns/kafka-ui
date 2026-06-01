@@ -1,9 +1,9 @@
 import 'react-datepicker/dist/react-datepicker.css';
 
 import React, { useMemo } from 'react';
-import DatePicker from 'react-datepicker';
 import styled from 'styled-components';
 import Select, { SelectOption } from 'components/common/Select/Select';
+import SingleDatePicker from 'components/common/SingleDatePicker/SingleDatePicker';
 
 export interface TimeRangeSelectorProps {
   start: Date | null;
@@ -24,7 +24,11 @@ const PRESETS: Preset[] = [
   { label: 'Last 1h', value: 'last-1h', ms: 60 * 60 * 1000 },
   { label: 'Last 1 day', value: 'last-1-day', ms: 24 * 60 * 60 * 1000 },
   { label: 'Last 7 days', value: 'last-7-days', ms: 7 * 24 * 60 * 60 * 1000 },
-  { label: 'Last 1 month', value: 'last-1-month', ms: 30 * 24 * 60 * 60 * 1000 },
+  {
+    label: 'Last 1 month',
+    value: 'last-1-month',
+    ms: 30 * 24 * 60 * 60 * 1000,
+  },
 ];
 
 const PRESET_OPTIONS: SelectOption<string>[] = [
@@ -75,7 +79,7 @@ const RangeLabel = styled.span`
   }
 `;
 
-const RangeDate = styled(DatePicker)`
+const RangeDate = styled(SingleDatePicker)`
   height: 30px;
   border: none;
   outline: none;
@@ -186,8 +190,9 @@ const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
           onChange={setStart}
           showTimeInput
           timeInputLabel="Time:"
-          dateFormat="MMM d HH:mm"
-          placeholderText="Start"
+          dateFormat="MMM d, yyyy HH:mm"
+          placeholderText="From date & time"
+          aria-label="From date and time"
           disabled={disabled}
           isClearable
         />
@@ -197,8 +202,9 @@ const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
           onChange={setEnd}
           showTimeInput
           timeInputLabel="Time:"
-          dateFormat="MMM d HH:mm"
-          placeholderText="End"
+          dateFormat="MMM d, yyyy HH:mm"
+          placeholderText="To date & time"
+          aria-label="To date and time"
           disabled={disabled}
           isClearable
         />
