@@ -129,7 +129,7 @@ describe('AddEditFilterContainer component', () => {
       const cancelBtnElement = screen.getByText(/cancel/i);
 
       await userEvent.click(cancelBtnElement);
-      expect(cancelCallback).toBeCalled();
+      expect(cancelCallback).toHaveBeenCalled();
     });
 
     it('should test whether the submit Callback is being called', async () => {
@@ -149,7 +149,7 @@ describe('AddEditFilterContainer component', () => {
       expect(submitButtonElem).toBeEnabled();
 
       await userEvent.click(submitButtonElem);
-      expect(submitCallback).toBeCalled();
+      expect(submitCallback).toHaveBeenCalled();
     });
   });
 });
