@@ -55,9 +55,11 @@ interface StatefulFiltersProps {
 const StatefulFilters: React.FC<StatefulFiltersProps> = ({
   initialStringFilters,
 }) => {
-  const [stringFilters, setStringFilters] = React.useState<string[]>(
-    initialStringFilters
-  );
+  const [stringFilters, setStringFilters] =
+    React.useState<string[]>(initialStringFilters);
+  const resetStringFilters = React.useCallback(() => {
+    setStringFilters([]);
+  }, []);
 
   return (
     <Filters
@@ -75,7 +77,7 @@ const StatefulFilters: React.FC<StatefulFiltersProps> = ({
           return nextStringFilters;
         });
       }}
-      resetStringFilters={() => setStringFilters([])}
+      resetStringFilters={resetStringFilters}
     />
   );
 };
@@ -142,10 +144,41 @@ describe('Filters component', () => {
     expect(screen.getByText('Refresh')).toBeInTheDocument();
   });
 
+  it('defaults to live updates and can switch back to newest messages', async () => {
+    renderComponent();
+
+    const liveUpdates = screen.getByRole('checkbox', {
+      name: 'Live updates',
+    });
+    expect(liveUpdates).toBeChecked();
+    expect(getSeekTypeSelect()).toHaveTextContent('Live');
+
+    await userEvent.click(liveUpdates);
+
+    await waitFor(() => {
+      expect(liveUpdates).not.toBeChecked();
+      expect(getSeekTypeSelect()).toHaveTextContent('Newest');
+    });
+  });
+
+  it('defaults the message limit to 500 and caps it at 5000', async () => {
+    renderComponent();
+    const messageLimit = screen.getByLabelText('Message limit');
+
+    expect(messageLimit).toHaveValue('500');
+
+    await userEvent.clear(messageLimit);
+    await userEvent.type(messageLimit, '9999');
+
+    expect(messageLimit).toHaveValue('5000');
+  });
+
   describe('refinement search inputs', () => {
     it('does not show refinement search before primary search has text', () => {
       renderComponent();
-      expect(screen.queryByPlaceholderText('Refine search')).not.toBeInTheDocument();
+      expect(
+        screen.queryByPlaceholderText('Refine search')
+      ).not.toBeInTheDocument();
     });
 
     it('shows refinement search when primary search has text', () => {
@@ -156,18 +189,22 @@ describe('Filters component', () => {
     it('adds another refinement search after typing in the current one', async () => {
       renderStatefulComponent({ [MessagesFilterKeys.stringFilter]: 'first' });
 
-      await userEvent.type(screen.getByPlaceholderText('Refine search'), 'second');
+      await userEvent.type(
+        screen.getByPlaceholderText('Refine search'),
+        'second'
+      );
 
       expect(screen.getAllByPlaceholderText('Refine search')).toHaveLength(2);
     });
 
     it('removes later refinement searches when an earlier one is cleared', async () => {
-      renderStatefulComponent(
-        { [MessagesFilterKeys.stringFilter]: 'first' },
-        ['second', 'third']
-      );
+      renderStatefulComponent({ [MessagesFilterKeys.stringFilter]: 'first' }, [
+        'second',
+        'third',
+      ]);
 
-      const refinementSearches = screen.getAllByPlaceholderText('Refine search');
+      const refinementSearches =
+        screen.getAllByPlaceholderText('Refine search');
       expect(refinementSearches).toHaveLength(3);
 
       await userEvent.clear(refinementSearches[0]);
@@ -176,17 +213,18 @@ describe('Filters component', () => {
     });
 
     it('resets refinement searches when primary search is cleared', async () => {
-      renderStatefulComponent(
-        { [MessagesFilterKeys.stringFilter]: 'first' },
-        ['second']
-      );
+      renderStatefulComponent({ [MessagesFilterKeys.stringFilter]: 'first' }, [
+        'second',
+      ]);
 
       fireEvent.change(screen.getByPlaceholderText('Search'), {
         target: { value: '' },
       });
 
       await waitFor(() => {
-        expect(screen.queryByPlaceholderText('Refine search')).not.toBeInTheDocument();
+        expect(
+          screen.queryByPlaceholderText('Refine search')
+        ).not.toBeInTheDocument();
       });
     });
   });
@@ -245,7 +283,9 @@ describe('Filters component', () => {
 
       await waitFor(() => {
         expect(seekTypeSelect).toHaveTextContent('Time range');
-        expect(screen.getByTestId('time-range-preset-select')).toBeInTheDocument();
+        expect(
+          screen.getByTestId('time-range-preset-select')
+        ).toBeInTheDocument();
       });
     });
   });
@@ -353,7 +393,9 @@ describe('Filters component', () => {
         );
 
         expect(getSeekTypeSelect()).toHaveTextContent('Time range');
-        expect(screen.getByTestId('time-range-preset-select')).toBeInTheDocument();
+        expect(
+          screen.getByTestId('time-range-preset-select')
+        ).toBeInTheDocument();
       });
     });
 
