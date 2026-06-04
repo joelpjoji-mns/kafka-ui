@@ -94,7 +94,7 @@ describe('SavedFilter Component', () => {
       await userEvent.hover(filters[1]);
       await userEvent.click(within(filters[1]).getByText(mockEditIcon));
 
-      expect(onEditMock).toBeCalledTimes(2);
+      expect(onEditMock).toHaveBeenCalledTimes(2);
     });
 
     it('should check the select filter', async () => {
