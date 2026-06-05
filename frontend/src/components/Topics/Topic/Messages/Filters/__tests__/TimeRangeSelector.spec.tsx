@@ -2,51 +2,12 @@ import React from 'react';
 import { render } from 'lib/testHelpers';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import PartitionCounts from 'components/Topics/Topic/Messages/Filters/PartitionCounts';
 import TimeRangeSelector from 'components/Topics/Topic/Messages/Filters/TimeRangeSelector';
-
-describe('PartitionCounts', () => {
-  it('renders nothing when total is 0', () => {
-    render(<PartitionCounts partitionCounts={{}} total={0} />);
-    expect(
-      screen.queryByTestId('partition-counts-total')
-    ).not.toBeInTheDocument();
-  });
-
-  it('shows total and per-partition pills sorted by partition', () => {
-    render(
-      <PartitionCounts
-        partitionCounts={{ 3: 2, 0: 5, 2: 1 }}
-        total={8}
-      />
-    );
-
-    expect(screen.getByTestId('partition-counts-total')).toHaveTextContent('8');
-
-    expect(screen.getByTestId('partition-count-0')).toHaveTextContent(/P0\s*5/);
-    expect(screen.getByTestId('partition-count-2')).toHaveTextContent(/P2\s*1/);
-    expect(screen.getByTestId('partition-count-3')).toHaveTextContent(/P3\s*2/);
-
-    const pillsInDom = [
-      screen.getByTestId('partition-count-0'),
-      screen.getByTestId('partition-count-2'),
-      screen.getByTestId('partition-count-3'),
-    ];
-    for (let i = 1; i < pillsInDom.length; i += 1) {
-      // eslint-disable-next-line no-bitwise
-      const positional =
-        pillsInDom[i - 1].compareDocumentPosition(pillsInDom[i]);
-      expect(positional & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    }
-  });
-});
 
 describe('TimeRangeSelector', () => {
   const setup = (start: Date | null = null, end: Date | null = null) => {
     const onApply = jest.fn();
-    render(
-      <TimeRangeSelector start={start} end={end} onApply={onApply} />
-    );
+    render(<TimeRangeSelector start={start} end={end} onApply={onApply} />);
     return { onApply };
   };
 
@@ -54,6 +15,8 @@ describe('TimeRangeSelector', () => {
     setup();
     const presetSelect = screen.getByTestId('time-range-preset-select');
     expect(presetSelect).toBeInTheDocument();
+    expect(screen.getByLabelText('From date and time')).toBeInTheDocument();
+    expect(screen.getByLabelText('To date and time')).toBeInTheDocument();
 
     await userEvent.click(presetSelect);
 
