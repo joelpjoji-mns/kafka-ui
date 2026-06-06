@@ -21,11 +21,19 @@ export interface PreviewFilter {
 
 export interface Props {
   keyFilters: PreviewFilter[];
+  headersFilters: PreviewFilter[];
   contentFilters: PreviewFilter[];
   message: TopicMessage;
+  isLiveArrival?: boolean;
 }
 
-const Message: React.FC<Props> = ({ message, keyFilters, contentFilters }) => {
+const Message: React.FC<Props> = ({
+  message,
+  keyFilters,
+  headersFilters,
+  contentFilters,
+  isLiveArrival = false,
+}) => {
   const { currentTimezone } = useTimezone();
   const [isOpen, setIsOpen] = React.useState(false);
   const { messageRelativeTimestamp } = React.useContext(ClusterContext);
@@ -86,10 +94,13 @@ const Message: React.FC<Props> = ({ message, keyFilters, contentFilters }) => {
     timezone: currentTimezone.value,
     withMilliseconds: true,
   });
+  const serializedHeaders = JSON.stringify(headers || {});
 
   return (
     <>
       <S.ClickableRow
+        $isLiveArrival={isLiveArrival}
+        data-live-arrival={isLiveArrival || undefined}
         onMouseEnter={() => setVEllipsisOpen(true)}
         onMouseLeave={() => setVEllipsisOpen(false)}
         onClick={toggleIsOpen}
@@ -119,6 +130,11 @@ const Message: React.FC<Props> = ({ message, keyFilters, contentFilters }) => {
             )}
           </Ellipsis>
         </S.DataCell>
+        <S.DataCell title={serializedHeaders}>
+          <Ellipsis
+            text={renderFilteredJson(serializedHeaders, headersFilters)}
+          />
+        </S.DataCell>
         <S.DataCell title={value}>
           <S.Metadata>
             <S.MetadataValue>
@@ -134,7 +150,7 @@ const Message: React.FC<Props> = ({ message, keyFilters, contentFilters }) => {
             </S.MetadataValue>
           </S.Metadata>
         </S.DataCell>
-        <td style={{ width: '5%' }}>
+        <td>
           <div style={{ visibility: vEllipsisOpen ? 'visible' : 'hidden' }}>
             <MessageActions message={message} />
           </div>
