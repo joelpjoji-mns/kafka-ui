@@ -6,6 +6,10 @@ import useDataSaver from 'lib/hooks/useDataSaver';
 import useAppParams from 'lib/hooks/useAppParams';
 import { RouteParamsClusterTopic } from 'lib/paths';
 import { useTopicActions } from 'components/contexts/TopicActionsContext';
+import { Modal } from 'components/common/Modal';
+import PageLoader from 'components/common/PageLoader/PageLoader';
+
+import MessageResetOffsetsModal from './MessageResetOffsetsModal';
 
 interface MessageActionsProps {
   message: TopicMessage;
@@ -14,6 +18,7 @@ interface MessageActionsProps {
 const MessageActions: React.FC<MessageActionsProps> = ({ message }) => {
   const { topicName } = useAppParams<RouteParamsClusterTopic>();
   const { openSidebarWithMessage } = useTopicActions();
+  const [isResetOffsetsOpen, setIsResetOffsetsOpen] = React.useState(false);
 
   const savedMessageJson = {
     Value: message.value,
@@ -30,27 +35,53 @@ const MessageActions: React.FC<MessageActionsProps> = ({ message }) => {
   );
 
   return (
-    <Dropdown>
-      <DropdownItem aria-label="Copy to clipboard" onClick={copyToClipboard}>
-        Copy to clipboard
-      </DropdownItem>
-      <DropdownItem aria-label="Save as a file" onClick={saveFile}>
-        Save as a file
-      </DropdownItem>
-      <ActionDropdownItem
-        aria-label="Reproduce message"
-        onClick={() => {
-          openSidebarWithMessage(message);
-        }}
-        permission={{
-          resource: ResourceType.TOPIC,
-          action: Action.MESSAGES_PRODUCE,
-          value: topicName,
-        }}
-      >
-        Reproduce message
-      </ActionDropdownItem>
-    </Dropdown>
+    <>
+      <Dropdown>
+        <DropdownItem aria-label="Copy to clipboard" onClick={copyToClipboard}>
+          Copy to clipboard
+        </DropdownItem>
+        <DropdownItem aria-label="Save as a file" onClick={saveFile}>
+          Save as a file
+        </DropdownItem>
+        <DropdownItem
+          aria-label="Reset consumer offset"
+          onClick={() => setIsResetOffsetsOpen(true)}
+        >
+          Reset consumer offset
+        </DropdownItem>
+        <ActionDropdownItem
+          aria-label="Reproduce message"
+          onClick={() => {
+            openSidebarWithMessage(message);
+          }}
+          permission={{
+            resource: ResourceType.TOPIC,
+            action: Action.MESSAGES_PRODUCE,
+            value: topicName,
+          }}
+        >
+          Reproduce message
+        </ActionDropdownItem>
+      </Dropdown>
+      {isResetOffsetsOpen && (
+        <React.Suspense
+          fallback={
+            <Modal
+              isOpen
+              onClose={() => setIsResetOffsetsOpen(false)}
+              title="Reset consumer offset"
+            >
+              <PageLoader />
+            </Modal>
+          }
+        >
+          <MessageResetOffsetsModal
+            message={message}
+            onClose={() => setIsResetOffsetsOpen(false)}
+          />
+        </React.Suspense>
+      )}
+    </>
   );
 };
 
