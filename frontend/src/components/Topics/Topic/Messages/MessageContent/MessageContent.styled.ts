@@ -1,4 +1,4 @@
-import styled, { css } from 'styled-components';
+import styled, { css, keyframes } from 'styled-components';
 import * as SEditorViewer from 'components/common/EditorViewer/EditorViewer.styled';
 import { Link } from 'react-router-dom';
 
@@ -20,6 +20,11 @@ export const Section = styled.div`
   display: flex;
   gap: 1px;
   align-items: stretch;
+  min-width: 0;
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    flex-direction: column;
+  }
 `;
 
 export const ContentBox = styled.div`
@@ -35,16 +40,49 @@ export const ContentBox = styled.div`
   ${SEditorViewer.Wrapper} {
     flex-grow: 1;
   }
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    border-radius: 8px 8px 0 0;
+  }
 `;
 export const DataCell = styled.td`
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  max-width: 350px;
-  min-width: 350px;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
 `;
-export const ClickableRow = styled.tr`
+const liveMessageArrival = (backgroundColor: string) => keyframes`
+  from {
+    background-color: ${backgroundColor};
+  }
+
+  to {
+    background-color: transparent;
+  }
+`;
+
+export const ClickableRow = styled.tr<{ $isLiveArrival?: boolean }>`
   cursor: pointer;
+
+  ${({ $isLiveArrival, theme }) =>
+    $isLiveArrival &&
+    css`
+      & > td {
+        animation: ${liveMessageArrival(theme.table.tr.backgroundColor.hover)}
+          560ms ease-out;
+      }
+    `}
+
+  @media (prefers-reduced-motion: reduce) {
+    & > td {
+      animation: none;
+    }
+  }
 `;
 export const MetadataWrapper = styled.div`
   background-color: ${({ theme }) => theme.topicMetaData.backgroundColor};
@@ -55,6 +93,13 @@ export const MetadataWrapper = styled.div`
   flex-direction: column;
   gap: 16px;
   min-width: 400px;
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    border-radius: 0 0 8px 8px;
+  }
 `;
 
 export const Metadata = styled.span`
@@ -119,15 +164,21 @@ export const Toolbar = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 8px;
   padding-bottom: 16px;
   && nav {
     padding-bottom: 0;
+  }
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    align-items: stretch;
   }
 `;
 
 export const ToolbarActions = styled.div`
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 `;
