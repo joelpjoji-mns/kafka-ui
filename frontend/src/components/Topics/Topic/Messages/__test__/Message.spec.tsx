@@ -42,6 +42,7 @@ const renderComponent = (
   props: Partial<Props> = {
     message: mockMessage,
     keyFilters: [],
+    headersFilters: [],
     contentFilters: [],
   },
   roles: Map<string, Map<ResourceType, RolesType>> = mockNoRoles,
@@ -66,7 +67,9 @@ const renderComponent = (
               <Message
                 message={props.message || mockMessage}
                 keyFilters={props.keyFilters || []}
+                headersFilters={props.headersFilters || []}
                 contentFilters={props.contentFilters || []}
+                isLiveArrival={props.isLiveArrival}
               />
             </tbody>
           </table>
@@ -93,6 +96,15 @@ describe('Message component', () => {
     expect(
       screen.getByText(mockMessage.partition.toString())
     ).toBeInTheDocument();
+  });
+
+  it('marks a newly streamed message for its arrival animation', () => {
+    renderComponent({ isLiveArrival: true });
+
+    expect(screen.getByRole('row')).toHaveAttribute(
+      'data-live-arrival',
+      'true'
+    );
   });
 
   it('shows timestamp by default', () => {
@@ -174,6 +186,15 @@ describe('Message component', () => {
     renderComponent(props);
     const keyFiltered = screen.getByText('author: "DwaywelayTOP"');
     expect(keyFiltered).toBeInTheDocument();
+  });
+
+  it('should check if Preview filter showing for Headers', () => {
+    const props = {
+      message: { ...mockMessage, headers: { author: 'DwaywelayTOP' } },
+      headersFilters: [{ field: 'author', path: '$.author' }],
+    };
+    renderComponent(props);
+    expect(screen.getByText('author: "DwaywelayTOP"')).toBeInTheDocument();
   });
 
   it('shows action options in dropdown on click', async () => {
