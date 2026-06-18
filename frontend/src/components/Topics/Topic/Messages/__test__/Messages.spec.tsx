@@ -5,6 +5,7 @@ import { useTopicMessages } from 'lib/hooks/api/topicMessages';
 import { screen } from '@testing-library/react';
 import { clusterTopicPath } from 'lib/paths';
 import { MessagesFilterKeys } from 'lib/constants';
+import { getMessageViewFilterSnapshot } from 'lib/messageViewFilterSnapshot';
 
 const mockFilterComponents = 'mockFilterComponents';
 const mockMessagesTable = 'mockMessagesTable';
@@ -38,6 +39,7 @@ describe('Messages', () => {
   };
 
   beforeEach(() => {
+    sessionStorage.clear();
     (useTopicMessages as jest.Mock).mockImplementation(() => ({
       messages: [],
       isFetching: false,
@@ -70,6 +72,20 @@ describe('Messages', () => {
           stringFilters: ['second', 'third'],
         })
       );
+    });
+
+    it('stores URL-backed filters for the Download screen', () => {
+      renderComponent(
+        `?${MessagesFilterKeys.mode}=FROM_TIMESTAMP&${MessagesFilterKeys.partitions}=0,2&${MessagesFilterKeys.stringFilter}=primary&${MessagesFilterKeys.stringFilter}=secondary`
+      );
+
+      const snapshot = getMessageViewFilterSnapshot(clusterName, topicName);
+      expect(snapshot?.get(MessagesFilterKeys.mode)).toBe('FROM_TIMESTAMP');
+      expect(snapshot?.get(MessagesFilterKeys.partitions)).toBe('0,2');
+      expect(snapshot?.getAll(MessagesFilterKeys.stringFilter)).toEqual([
+        'primary',
+        'secondary',
+      ]);
     });
   });
 });
