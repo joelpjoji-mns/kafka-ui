@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render } from 'lib/testHelpers';
 import MessagesTable, {
@@ -17,7 +17,7 @@ export const topicMessagePayload: TopicMessage = {
   timestamp: new Date('2021-07-21T23:25:14.865Z'),
   timestampType: TopicMessageTimestampTypeEnum.CREATE_TIME,
   key: 'schema-registry',
-  headers: {},
+  headers: { header: 'test' },
   value:
     '{"host":"schemaregistry1","port":8085,"master_eligibility":true,"scheme":"http","version":1}',
 };
@@ -42,8 +42,11 @@ jest.mock('lib/hooks/useAppParams', () => ({
 }));
 
 describe('MessagesTable', () => {
+  beforeEach(() => localStorage.clear());
+
   const renderComponent = (props?: Partial<MessagesTableProps>) => {
     (useAppParams as jest.Mock).mockImplementation(() => ({
+      clusterName: 'testCluster',
       topicName: 'testTopic',
     }));
     return render(
@@ -66,7 +69,27 @@ describe('MessagesTable', () => {
       const previewButtons = await screen.findAllByRole('button', {
         name: 'Preview',
       });
-      expect(previewButtons).toHaveLength(2);
+      expect(previewButtons).toHaveLength(3);
+    });
+
+    it('resizes a data column and persists its width', () => {
+      const resizeHandle = screen.getByRole('button', {
+        name: 'Resize Key column',
+      });
+      const columns = screen.getByRole('table').querySelectorAll('col');
+
+      fireEvent.keyDown(resizeHandle, { key: 'ArrowRight' });
+
+      expect(columns[4]).toHaveStyle('width: 296px');
+      expect(
+        JSON.parse(
+          global.localStorage.getItem(
+            `${LOCAL_STORAGE_KEY_PREFIX}-message-table-widths`
+          ) || '{}'
+        )
+      ).toEqual({
+        'testCluster:testTopic': { key: 296 },
+      });
     });
 
     it('should show preview modal with validation', async () => {
@@ -110,6 +133,22 @@ describe('MessagesTable', () => {
           screen.getByText(mockTopicsMessages[0].value)
         ).toBeInTheDocument();
       }
+      expect(
+        screen.getByRole('columnheader', { name: /Headers/ })
+      ).toBeInTheDocument();
+    });
+
+    it('marks messages as new only after the live stream is ready', () => {
+      (useIsLiveMode as jest.Mock).mockReturnValue(true);
+      renderComponent({
+        messages: mockTopicsMessages,
+        isFetching: false,
+        animateLiveArrivals: true,
+      });
+
+      expect(
+        document.querySelector('[data-live-arrival="true"]')
+      ).toBeInTheDocument();
     });
   });
 
@@ -125,6 +164,10 @@ describe('MessagesTable', () => {
       await userEvent.type(screen.getByPlaceholderText('Json Path'), 'test2');
       await userEvent.click(screen.getByText('Save'));
       await userEvent.click(previewButtons[1]);
+      await userEvent.type(screen.getByPlaceholderText('Field'), 'header1');
+      await userEvent.type(screen.getByPlaceholderText('Json Path'), 'header2');
+      await userEvent.click(screen.getByText('Save'));
+      await userEvent.click(previewButtons[2]);
       await userEvent.type(screen.getByPlaceholderText('Field'), 'test3');
       await userEvent.type(screen.getByPlaceholderText('Json Path'), 'test4');
       await userEvent.click(screen.getByText('Save'));
@@ -136,6 +179,7 @@ describe('MessagesTable', () => {
         JSON.stringify({
           testTopic: {
             keyFilters: [{ field: 'test1', path: 'test2' }],
+            headersFilters: [{ field: 'header1', path: 'header2' }],
             contentFilters: [{ field: 'test3', path: 'test4' }],
           },
         })
