@@ -37,3 +37,22 @@ export const FlexItem = styled.div`
     width: 100%;
   }
 `;
+
+export const Actions = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+`;
+
+export const ValidationPreview = styled.div`
+  margin: 0 0 16px;
+
+  p {
+    margin: 0 0 8px;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 20px;
+  }
+`;
