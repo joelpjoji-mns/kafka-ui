@@ -11,13 +11,19 @@ import Tooltip from 'components/common/Tooltip/Tooltip';
 import InfoIcon from 'components/common/Icons/InfoIcon';
 import useAppParams from 'lib/hooks/useAppParams';
 import { showAlert } from 'lib/errorHandling';
-import { useSendMessage, useTopicDetails } from 'lib/hooks/api/topics';
+import {
+  usePreviewTopicMessage,
+  useSendMessage,
+  useTopicDetails,
+} from 'lib/hooks/api/topics';
 import { InputLabel } from 'components/common/Input/InputLabel.styled';
 import { useSerdes } from 'lib/hooks/api/topicMessages';
 import {
   SerdeDescription,
   SerdeParameter,
   SerdeUsage,
+  MessageFieldValidation,
+  MessageValidationPreview,
 } from 'generated-sources';
 import { MessageFormData } from 'lib/interfaces/message';
 
@@ -33,6 +39,54 @@ interface SendMessageProps {
   closeSidebar: () => void;
   messageData?: Partial<MessageFormData> | null;
 }
+
+interface PreviewState {
+  fingerprint: string;
+  result: MessageValidationPreview;
+}
+
+const previewFingerprint = ({
+  key: formKey,
+  content: formContent,
+  headers: formHeaders,
+  partition: formPartition,
+  keySerde: formKeySerde,
+  valueSerde: formValueSerde,
+  keySerdeParams: formKeySerdeParams,
+  valueSerdeParams: formValueSerdeParams,
+}: Partial<MessageFormData>) =>
+  JSON.stringify({
+    key: formKey,
+    content: formContent,
+    headers: formHeaders,
+    partition: formPartition,
+    keySerde: formKeySerde,
+    valueSerde: formValueSerde,
+    keySerdeParams: formKeySerdeParams,
+    valueSerdeParams: formValueSerdeParams,
+  });
+
+const previewFieldText = (label: string, field: MessageFieldValidation) => {
+  if (field.status === 'VALIDATED') {
+    const { schema } = field;
+    const schemaDetails = [
+      schema?.subject,
+      schema?.id !== undefined ? `ID ${schema.id}` : undefined,
+      schema?.version !== undefined ? `version ${schema.version}` : undefined,
+      schema?.type,
+    ]
+      .filter(Boolean)
+      .join(', ');
+    return `${label}: validated by ${field.serde}${schemaDetails ? ` (${schemaDetails})` : ''}`;
+  }
+  if (field.status === 'SERIALIZED') {
+    return `${label}: serialized by ${field.serde}; no schema metadata is available`;
+  }
+  if (field.status === 'SKIPPED') {
+    return `${label}: skipped because no payload was supplied`;
+  }
+  return `${label}: ${field.errors?.join(', ') || 'serialization failed'}`;
+};
 
 const getSerdeParameters = (
   serdeName: string | undefined,
@@ -58,6 +112,10 @@ const SendMessage: React.FC<SendMessageProps> = ({
     use: SerdeUsage.SERIALIZE,
   });
   const sendMessage = useSendMessage({ clusterName, topicName });
+  const previewMessage = usePreviewTopicMessage({ clusterName, topicName });
+  const [previewState, setPreviewState] = React.useState<PreviewState | null>(
+    null
+  );
   const defaultValues = React.useMemo(() => getDefaultValues(serdes), [serdes]);
   const partitionOptions = React.useMemo(
     () => getPartitionOptions(topic?.partitions || []),
@@ -80,6 +138,7 @@ const SendMessage: React.FC<SendMessageProps> = ({
     handleSubmit,
     formState: { isSubmitting },
     control,
+    getValues,
     setValue,
   } = useForm<MessageFormData>({
     mode: 'onChange',
@@ -88,6 +147,26 @@ const SendMessage: React.FC<SendMessageProps> = ({
 
   const keySerde = useWatch({ control, name: 'keySerde' });
   const valueSerde = useWatch({ control, name: 'valueSerde' });
+  const key = useWatch({ control, name: 'key' });
+  const content = useWatch({ control, name: 'content' });
+  const headers = useWatch({ control, name: 'headers' });
+  const partition = useWatch({ control, name: 'partition' });
+  const keySerdeParams = useWatch({ control, name: 'keySerdeParams' });
+  const valueSerdeParams = useWatch({ control, name: 'valueSerdeParams' });
+  const currentPreviewFingerprint = previewFingerprint({
+    key,
+    content,
+    headers,
+    partition,
+    keySerde,
+    valueSerde,
+    keySerdeParams,
+    valueSerdeParams,
+  });
+  const preview =
+    previewState?.fingerprint === currentPreviewFingerprint
+      ? previewState.result
+      : null;
 
   const keySerdeParameters = React.useMemo(
     () => getSerdeParameters(keySerde, serdes.key),
@@ -153,19 +232,19 @@ const SendMessage: React.FC<SendMessageProps> = ({
   const submit = async ({
     keySerde: formKeySerde,
     valueSerde: formValueSerde,
-    key,
-    content,
-    headers,
-    partition,
-    keySerdeParams,
-    valueSerdeParams,
+    key: messageKey,
+    content: messageContent,
+    headers: messageHeaders,
+    partition: messagePartition,
+    keySerdeParams: messageKeySerdeParams,
+    valueSerdeParams: messageValueSerdeParams,
     keepContents,
   }: MessageFormData) => {
     let errors: string[] = [];
 
     if (formKeySerde) {
       const selectedKeySerde = serdes.key?.find((k) => k.name === formKeySerde);
-      errors = validateBySchema(key, selectedKeySerde?.schema, 'key');
+      errors = validateBySchema(messageKey, selectedKeySerde?.schema, 'key');
     }
 
     if (formValueSerde) {
@@ -174,14 +253,14 @@ const SendMessage: React.FC<SendMessageProps> = ({
       );
       errors = [
         ...errors,
-        ...validateBySchema(content, selectedValue?.schema, 'content'),
+        ...validateBySchema(messageContent, selectedValue?.schema, 'content'),
       ];
     }
 
     let parsedHeaders;
-    if (headers) {
+    if (messageHeaders) {
       try {
-        parsedHeaders = JSON.parse(headers);
+        parsedHeaders = JSON.parse(messageHeaders);
       } catch {
         errors.push('Wrong header format');
       }
@@ -203,17 +282,19 @@ const SendMessage: React.FC<SendMessageProps> = ({
     }
     try {
       await sendMessage.mutateAsync({
-        key: key || null,
-        value: content || null,
+        key: messageKey || null,
+        value: messageContent || null,
         headers: parsedHeaders,
-        partition: partition || 0,
+        partition: messagePartition || 0,
         keySerde: formKeySerde,
         valueSerde: formValueSerde,
-        ...(keySerdeParams && Object.keys(keySerdeParams).length > 0
-          ? { keySerdeProperties: keySerdeParams }
+        ...(messageKeySerdeParams &&
+        Object.keys(messageKeySerdeParams).length > 0
+          ? { keySerdeProperties: messageKeySerdeParams }
           : {}),
-        ...(valueSerdeParams && Object.keys(valueSerdeParams).length > 0
-          ? { valueSerdeProperties: valueSerdeParams }
+        ...(messageValueSerdeParams &&
+        Object.keys(messageValueSerdeParams).length > 0
+          ? { valueSerdeProperties: messageValueSerdeParams }
           : {}),
       });
       if (!keepContents) {
@@ -223,6 +304,48 @@ const SendMessage: React.FC<SendMessageProps> = ({
       }
     } catch {
       // do nothing
+    }
+  };
+
+  const validatePreview = async () => {
+    const values = getValues();
+    let parsedHeaders;
+    if (values.headers) {
+      try {
+        parsedHeaders = JSON.parse(values.headers);
+      } catch {
+        showAlert('error', {
+          id: `${clusterName}-${topicName}-previewTopicMessageError`,
+          title: 'Validation Error',
+          message: 'Wrong header format',
+        });
+        return;
+      }
+    }
+
+    try {
+      const result = await previewMessage.mutateAsync({
+        key: values.key || null,
+        value: values.content || null,
+        headers: parsedHeaders,
+        partition: values.partition || 0,
+        keySerde: values.keySerde,
+        valueSerde: values.valueSerde,
+        ...(values.keySerdeParams &&
+        Object.keys(values.keySerdeParams).length > 0
+          ? { keySerdeProperties: values.keySerdeParams }
+          : {}),
+        ...(values.valueSerdeParams &&
+        Object.keys(values.valueSerdeParams).length > 0
+          ? { valueSerdeProperties: values.valueSerdeParams }
+          : {}),
+      });
+      setPreviewState({
+        fingerprint: previewFingerprint(values),
+        result,
+      });
+    } catch {
+      setPreviewState(null);
     }
   };
 
@@ -361,14 +484,45 @@ const SendMessage: React.FC<SendMessageProps> = ({
             />
           </S.Flex>
         </S.Columns>
-        <Button
-          buttonSize="M"
-          buttonType="primary"
-          type="submit"
-          disabled={isSubmitting}
-        >
-          Produce Message
-        </Button>
+        {preview && (
+          <S.ValidationPreview aria-live="polite" role="status">
+            <p>
+              {preview.canSerialize
+                ? 'Serialization preview completed without producing a message.'
+                : 'Serialization preview found errors.'}
+            </p>
+            {preview.errors && preview.errors.length > 0 && (
+              <ul>
+                {preview.errors.map((error) => (
+                  <li key={error}>{error}</li>
+                ))}
+              </ul>
+            )}
+            <ul>
+              <li>{previewFieldText('Key', preview.key)}</li>
+              <li>{previewFieldText('Value', preview.value)}</li>
+            </ul>
+          </S.ValidationPreview>
+        )}
+        <S.Actions>
+          <Button
+            buttonSize="M"
+            buttonType="secondary"
+            disabled={isSubmitting}
+            inProgress={previewMessage.isPending}
+            onClick={validatePreview}
+          >
+            Validate Preview
+          </Button>
+          <Button
+            buttonSize="M"
+            buttonType="primary"
+            type="submit"
+            disabled={isSubmitting}
+          >
+            Produce Message
+          </Button>
+        </S.Actions>
       </form>
     </S.Wrapper>
   );
