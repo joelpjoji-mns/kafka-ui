@@ -6,7 +6,11 @@ import { render, WithRoute } from 'lib/testHelpers';
 import { clusterTopicPath } from 'lib/paths';
 import { validateBySchema } from 'components/Topics/Topic/SendMessage/utils';
 import { internalTopicPayload } from 'lib/fixtures/topics';
-import { useSendMessage, useTopicDetails } from 'lib/hooks/api/topics';
+import {
+  usePreviewTopicMessage,
+  useSendMessage,
+  useTopicDetails,
+} from 'lib/hooks/api/topics';
 import { useSerdes } from 'lib/hooks/api/topicMessages';
 import { serdesPayload } from 'lib/fixtures/topicMessages';
 import { MessageFormData } from 'lib/interfaces/message';
@@ -36,6 +40,7 @@ jest.mock('lib/errorHandling', () => ({
 jest.mock('lib/hooks/api/topics', () => ({
   useTopicDetails: jest.fn(),
   useSendMessage: jest.fn(),
+  usePreviewTopicMessage: jest.fn(),
 }));
 
 jest.mock('lib/hooks/api/topicMessages', () => ({
@@ -144,9 +149,16 @@ const renderAndSubmitData = async (error: string[] = []) => {
 
 describe('SendMessage', () => {
   const sendTopicMessageMock = jest.fn();
+  const previewTopicMessageMock = jest.fn();
   beforeEach(() => {
+    sendTopicMessageMock.mockClear();
+    previewTopicMessageMock.mockClear();
     (useSendMessage as jest.Mock).mockImplementation(() => ({
       mutateAsync: sendTopicMessageMock,
+    }));
+    (usePreviewTopicMessage as jest.Mock).mockImplementation(() => ({
+      isPending: false,
+      mutateAsync: previewTopicMessageMock,
     }));
     (useTopicDetails as jest.Mock).mockImplementation(() => ({
       data: topicPayloadMultiplePartitions,
@@ -168,6 +180,42 @@ describe('SendMessage', () => {
       await renderAndSubmitData(['error']);
       expect(sendTopicMessageMock).not.toHaveBeenCalled();
       expect(mockOnSubmit).not.toHaveBeenCalled();
+    });
+
+    it('validates a preview without sending the message', async () => {
+      previewTopicMessageMock.mockResolvedValue({
+        canSerialize: true,
+        key: {
+          status: 'VALIDATED',
+          serde: 'Int32',
+          schema: {
+            subject: 'preview-key',
+            id: 10,
+            version: '1',
+            type: 'AVRO',
+          },
+        },
+        value: {
+          status: 'SERIALIZED',
+          serde: 'Int64',
+        },
+      });
+      await renderComponent();
+
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Validate Preview' })
+      );
+
+      await waitFor(() => {
+        expect(previewTopicMessageMock).toHaveBeenCalledTimes(1);
+      });
+      expect(sendTopicMessageMock).not.toHaveBeenCalled();
+      expect(screen.getByText(/validated by Int32/i)).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /serialized by Int64; no schema metadata is available/i
+        )
+      ).toBeInTheDocument();
     });
   });
 
