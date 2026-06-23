@@ -10,9 +10,12 @@ import {
   clusterTopicAclsRelativePath,
   clusterTopicConnectorsRelativePath,
   clusterTopicConsumerGroupsRelativePath,
+  clusterTopicDataProfileRelativePath,
+  clusterTopicDeveloperRelativePath,
   clusterTopicDownloadRelativePath,
   clusterTopicEditRelativePath,
   clusterTopicMessagesRelativePath,
+  clusterTopicPath,
   clusterTopicSettingsRelativePath,
   clusterTopicsPath,
   clusterTopicStatisticsRelativePath,
@@ -61,6 +64,8 @@ import SendMessage from './SendMessage/SendMessage';
 import Acls from './Acls/Acls';
 import Download from './Download/Download';
 import Upload from './Upload/Upload';
+import DataProfile from './DataProfile/DataProfile';
+import DeveloperHub from './DeveloperHub/DeveloperHub';
 
 const Topic: React.FC = () => {
   const {
@@ -106,6 +111,7 @@ const Topic: React.FC = () => {
   const clearTopicMessagesHandler = async () => {
     await clearMessages.mutateAsync(topicName);
   };
+  const topicPath = clusterTopicPath(clusterName, topicName);
   const canCleanup = data?.cleanUpPolicy === CleanUpPolicy.DELETE;
   const isConnectorsAvailable = connectors.length > 0;
 
@@ -223,14 +229,14 @@ const Topic: React.FC = () => {
         <>
           <Navbar role="navigation">
             <NavLink
-              to="."
+              to={topicPath}
               className={({ isActive }) => (isActive ? 'is-active' : '')}
               end
             >
               Overview
             </NavLink>
             <ActionNavLink
-              to={clusterTopicMessagesRelativePath}
+              to={`${topicPath}/${clusterTopicMessagesRelativePath}`}
               className={({ isActive }) => (isActive ? 'is-active' : '')}
               permission={{
                 resource: ResourceType.TOPIC,
@@ -241,7 +247,7 @@ const Topic: React.FC = () => {
               Messages
             </ActionNavLink>
             <ActionNavLink
-              to={clusterTopicDownloadRelativePath}
+              to={`${topicPath}/${clusterTopicDownloadRelativePath}`}
               className={({ isActive }) => (isActive ? 'is-active' : '')}
               permission={{
                 resource: ResourceType.TOPIC,
@@ -252,7 +258,7 @@ const Topic: React.FC = () => {
               Download
             </ActionNavLink>
             <ActionNavLink
-              to={clusterTopicUploadRelativePath}
+              to={`${topicPath}/${clusterTopicUploadRelativePath}`}
               className={({ isActive }) => (isActive ? 'is-active' : '')}
               permission={{
                 resource: ResourceType.TOPIC,
@@ -263,19 +269,19 @@ const Topic: React.FC = () => {
               Upload
             </ActionNavLink>
             <NavLink
-              to={clusterTopicConsumerGroupsRelativePath}
+              to={`${topicPath}/${clusterTopicConsumerGroupsRelativePath}`}
               className={({ isActive }) => (isActive ? 'is-active' : '')}
             >
               Consumers
             </NavLink>
             <NavLink
-              to={clusterTopicSettingsRelativePath}
+              to={`${topicPath}/${clusterTopicSettingsRelativePath}`}
               className={({ isActive }) => (isActive ? 'is-active' : '')}
             >
               Settings
             </NavLink>
             <ActionNavLink
-              to={clusterTopicStatisticsRelativePath}
+              to={`${topicPath}/${clusterTopicStatisticsRelativePath}`}
               className={({ isActive }) => (isActive ? 'is-active' : '')}
               permission={{
                 resource: ResourceType.TOPIC,
@@ -286,7 +292,29 @@ const Topic: React.FC = () => {
               Statistics
             </ActionNavLink>
             <ActionNavLink
-              to={clusterTopicAclsRelativePath}
+              to={`${topicPath}/${clusterTopicDataProfileRelativePath}`}
+              className={({ isActive }) => (isActive ? 'is-active' : '')}
+              permission={{
+                resource: ResourceType.TOPIC,
+                action: Action.MESSAGES_READ,
+                value: topicName,
+              }}
+            >
+              Profile
+            </ActionNavLink>
+            <ActionNavLink
+              to={`${topicPath}/${clusterTopicDeveloperRelativePath}`}
+              className={({ isActive }) => (isActive ? 'is-active' : '')}
+              permission={{
+                resource: ResourceType.TOPIC,
+                action: Action.VIEW,
+                value: topicName,
+              }}
+            >
+              Developer
+            </ActionNavLink>
+            <ActionNavLink
+              to={`${topicPath}/${clusterTopicAclsRelativePath}`}
               className={({ isActive }) => (isActive ? 'is-active' : '')}
               permission={{
                 resource: ResourceType.ACL,
@@ -297,7 +325,7 @@ const Topic: React.FC = () => {
             </ActionNavLink>
             {isConnectorsAvailable && (
               <ActionNavLink
-                to={clusterTopicConnectorsRelativePath}
+                to={`${topicPath}/${clusterTopicConnectorsRelativePath}`}
                 className={({ isActive }) => (isActive ? 'is-active' : '')}
                 permission={{
                   resource: ResourceType.TOPIC,
@@ -336,6 +364,14 @@ const Topic: React.FC = () => {
                 <Route
                   path={clusterTopicStatisticsRelativePath}
                   element={<Statistics />}
+                />
+                <Route
+                  path={clusterTopicDataProfileRelativePath}
+                  element={<DataProfile />}
+                />
+                <Route
+                  path={clusterTopicDeveloperRelativePath}
+                  element={<DeveloperHub />}
                 />
                 <Route path={clusterTopicAclsRelativePath} element={<Acls />} />
                 {isConnectorsAvailable && (
