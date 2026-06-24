@@ -141,7 +141,8 @@ class KafkaConsumerTests extends AbstractIntegrationTest {
         .containsExactlyInAnyOrder("alpha beta", "alpha only");
 
     List<TopicMessageEventDTO> repeatedFilterResponse = webTestClient.get()
-        .uri("/api/clusters/{clusterName}/topics/{topicName}/messages/v2?mode=EARLIEST&stringFilter=alpha&stringFilter=beta",
+        .uri("/api/clusters/{clusterName}/topics/{topicName}/messages/v2?mode=EARLIEST"
+                + "&stringFilter=alpha&stringFilter=beta",
             LOCAL,
             topicName)
         .accept(TEXT_EVENT_STREAM)
