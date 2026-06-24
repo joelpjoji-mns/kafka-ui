@@ -4,6 +4,7 @@ import * as hooks from 'lib/hooks/api/topicMessages';
 import fetchMock from 'fetch-mock';
 import { UseQueryResult, UseSuspenseQueryResult } from '@tanstack/react-query';
 import { SerdeUsage } from 'generated-sources';
+import { MessagesFilterKeys } from 'lib/constants';
 
 const clusterName = 'test-cluster';
 const topicName = 'test-topic';
@@ -57,6 +58,22 @@ describe('Topic Messages hooks', () => {
       hooks.useSerdes({ clusterName, topicName, use: SerdeUsage.SERIALIZE })
     );
     await expectQueryWorks(mock, result);
+  });
+
+  it('appends primary and refinement string filters as repeated params', () => {
+    const requestParams = new URLSearchParams({ limit: '100' });
+
+    hooks.appendStringFilters(requestParams, 'primary', [
+      'secondary',
+      '',
+      'third',
+    ]);
+
+    expect(requestParams.getAll(MessagesFilterKeys.stringFilter)).toEqual([
+      'primary',
+      'secondary',
+      'third',
+    ]);
   });
 
   it('downloads topic messages zip', async () => {

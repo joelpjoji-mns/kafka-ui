@@ -201,7 +201,7 @@ public class MessagesController extends AbstractController implements MessagesAp
                                                                              PollingModeDTO mode,
                                                                              List<Integer> partitions,
                                                                              Integer limit,
-                                                                             String stringFilter,
+                                                                             List<String> stringFilter,
                                                                              String smartFilterId,
                                                                              Long offset,
                                                                              Long timestamp,

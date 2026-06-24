@@ -26,7 +26,10 @@ import { ClusterName } from 'lib/interfaces/cluster';
 interface UseTopicMessagesProps {
   clusterName: ClusterName;
   topicName: TopicName;
+  stringFilters?: string[];
 }
+
+const EMPTY_STRING_FILTERS: string[] = [];
 
 interface DownloadMessagesZipProps {
   clusterName: ClusterName;
@@ -104,9 +107,22 @@ const zipFileNameFromHeader = (contentDisposition: string | null) => {
   }
 };
 
+export const appendStringFilters = (
+  requestParams: URLSearchParams,
+  primaryStringFilter: string | null,
+  stringFilters: string[] = EMPTY_STRING_FILTERS
+) => {
+  [primaryStringFilter, ...stringFilters].forEach((stringFilter) => {
+    if (stringFilter) {
+      requestParams.append(MessagesFilterKeys.stringFilter, stringFilter);
+    }
+  });
+};
+
 export const useTopicMessages = ({
   clusterName,
   topicName,
+  stringFilters = EMPTY_STRING_FILTERS,
 }: UseTopicMessagesProps) => {
   const [searchParams] = useSearchParams();
   const [messages, setMessages] = React.useState<TopicMessage[]>([]);
@@ -116,6 +132,7 @@ export const useTopicMessages = ({
   const [isFetching, setIsFetching] = React.useState(false);
   const abortController = useRef(new AbortController());
   const prevCursor = useRef(0);
+  const prevRequestKey = useRef('');
 
   // get initial properties
 
@@ -145,7 +162,6 @@ export const useTopicMessages = ({
       });
 
       [
-        MessagesFilterKeys.stringFilter,
         MessagesFilterKeys.keySerde,
         MessagesFilterKeys.smartFilterId,
         MessagesFilterKeys.valueSerde,
@@ -155,6 +171,12 @@ export const useTopicMessages = ({
           requestParams.set(item, value);
         }
       });
+
+      appendStringFilters(
+        requestParams,
+        searchParams.get(MessagesFilterKeys.stringFilter),
+        stringFilters
+      );
 
       switch (mode) {
         case PollingMode.TO_TIMESTAMP:
@@ -180,16 +202,21 @@ export const useTopicMessages = ({
       }
       const { nextCursor, setNextCursor } = useMessageFiltersStore.getState();
 
-      const tempCompareUrl = new URLSearchParams(requestParams);
-      tempCompareUrl.delete(MessagesFilterKeys.cursor);
-
       const currentCursor = getCursorValue(searchParams);
+      const requestKey = requestParams.toString();
 
       // filters stay the same and we have cursor set cursor
-      if (nextCursor && prevCursor.current < currentCursor) {
+      if (
+        requestKey === prevRequestKey.current &&
+        nextCursor &&
+        prevCursor.current < currentCursor
+      ) {
         requestParams.set(MessagesFilterKeys.cursor, nextCursor);
+      } else if (requestKey !== prevRequestKey.current) {
+        setNextCursor(undefined);
       }
 
+      prevRequestKey.current = requestKey;
       prevCursor.current = currentCursor;
 
       await fetchEventSource(`${url}?${requestParams.toString()}`, {
@@ -254,7 +281,7 @@ export const useTopicMessages = ({
     fetchData();
 
     return abortFetchData;
-  }, [searchParams, abortFetchData]);
+  }, [searchParams, abortFetchData, stringFilters]);
 
   return {
     phase,

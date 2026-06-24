@@ -2715,7 +2715,9 @@ paths:
           in: query
           required: false
           schema:
-            type: string
+            type: array
+            items:
+              type: string
           explode: false
         - name: smartFilterId
           in: query

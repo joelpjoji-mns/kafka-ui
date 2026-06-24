@@ -3,7 +3,7 @@ import Filters, {
   FiltersProps,
 } from 'components/Topics/Topic/Messages/Filters/Filters';
 import { render, WithRoute } from 'lib/testHelpers';
-import { act, screen } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { clusterTopicPath } from 'lib/paths';
 import { useTopicDetails } from 'lib/hooks/api/topics';
@@ -31,6 +31,10 @@ jest.mock('components/common/Icons/CloseIcon', () => () => (
   <div>{closeIconMock}</div>
 ));
 
+jest.mock('use-debounce', () => ({
+  useDebouncedCallback: (fn: (e: Event) => void) => fn,
+}));
+
 jest.mock(
   'components/Topics/Topic/Messages/Filters/FiltersSideBar',
   () => () => <div>{filtersSideBarMock}</div>
@@ -44,6 +48,38 @@ jest.mock(
 const clusterName = 'cluster-name';
 const topicName = 'topic-name';
 
+interface StatefulFiltersProps {
+  initialStringFilters: string[];
+}
+
+const StatefulFilters: React.FC<StatefulFiltersProps> = ({
+  initialStringFilters,
+}) => {
+  const [stringFilters, setStringFilters] = React.useState<string[]>(
+    initialStringFilters
+  );
+
+  return (
+    <Filters
+      isFetching={false}
+      abortFetchData={jest.fn()}
+      stringFilters={stringFilters}
+      setStringFilter={(index, value) => {
+        setStringFilters((currentStringFilters) => {
+          if (!value) {
+            return currentStringFilters.slice(0, index);
+          }
+
+          const nextStringFilters = currentStringFilters.slice();
+          nextStringFilters[index] = value;
+          return nextStringFilters;
+        });
+      }}
+      resetStringFilters={() => setStringFilters([])}
+    />
+  );
+};
+
 const renderComponent = (
   props?: Partial<FiltersProps>,
   queryParams?: Partial<Record<MessagesFilterKeysTypes, string>>
@@ -52,7 +88,32 @@ const renderComponent = (
 
   return render(
     <WithRoute path={clusterTopicPath()}>
-      <Filters isFetching={false} abortFetchData={jest.fn()} {...props} />
+      <Filters
+        isFetching={false}
+        abortFetchData={jest.fn()}
+        stringFilters={[]}
+        setStringFilter={jest.fn()}
+        resetStringFilters={jest.fn()}
+        {...props}
+      />
+    </WithRoute>,
+    {
+      initialEntries: [
+        `${clusterTopicPath(clusterName, topicName)}?${urlParams.toString()}`,
+      ],
+    }
+  );
+};
+
+const renderStatefulComponent = (
+  queryParams?: Partial<Record<MessagesFilterKeysTypes, string>>,
+  initialStringFilters: string[] = []
+) => {
+  const urlParams = new URLSearchParams({ ...queryParams });
+
+  return render(
+    <WithRoute path={clusterTopicPath()}>
+      <StatefulFilters initialStringFilters={initialStringFilters} />
     </WithRoute>,
     {
       initialEntries: [
@@ -79,6 +140,55 @@ describe('Filters component', () => {
   it('shows refresh button', () => {
     renderComponent();
     expect(screen.getByText('Refresh')).toBeInTheDocument();
+  });
+
+  describe('refinement search inputs', () => {
+    it('does not show refinement search before primary search has text', () => {
+      renderComponent();
+      expect(screen.queryByPlaceholderText('Refine search')).not.toBeInTheDocument();
+    });
+
+    it('shows refinement search when primary search has text', () => {
+      renderComponent({}, { [MessagesFilterKeys.stringFilter]: 'first' });
+      expect(screen.getByPlaceholderText('Refine search')).toBeInTheDocument();
+    });
+
+    it('adds another refinement search after typing in the current one', async () => {
+      renderStatefulComponent({ [MessagesFilterKeys.stringFilter]: 'first' });
+
+      await userEvent.type(screen.getByPlaceholderText('Refine search'), 'second');
+
+      expect(screen.getAllByPlaceholderText('Refine search')).toHaveLength(2);
+    });
+
+    it('removes later refinement searches when an earlier one is cleared', async () => {
+      renderStatefulComponent(
+        { [MessagesFilterKeys.stringFilter]: 'first' },
+        ['second', 'third']
+      );
+
+      const refinementSearches = screen.getAllByPlaceholderText('Refine search');
+      expect(refinementSearches).toHaveLength(3);
+
+      await userEvent.clear(refinementSearches[0]);
+
+      expect(screen.getAllByPlaceholderText('Refine search')).toHaveLength(1);
+    });
+
+    it('resets refinement searches when primary search is cleared', async () => {
+      renderStatefulComponent(
+        { [MessagesFilterKeys.stringFilter]: 'first' },
+        ['second']
+      );
+
+      fireEvent.change(screen.getByPlaceholderText('Search'), {
+        target: { value: '' },
+      });
+
+      await waitFor(() => {
+        expect(screen.queryByPlaceholderText('Refine search')).not.toBeInTheDocument();
+      });
+    });
   });
 
   describe('Filter Input default elements', () => {

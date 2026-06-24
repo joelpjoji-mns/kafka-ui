@@ -77,7 +77,7 @@ interface MessagesApi {
     @query mode?: PollingMode,
     @query partitions?: int32[],
     @query limit?: int32,
-    @query stringFilter?: string,
+    @query stringFilter?: string[],
     @query smartFilterId?: string,
     @query offset?: int64,
     @query timestamp?: int64,

@@ -29,6 +29,7 @@ import io.kafbat.ui.exception.CelException;
 import io.kafbat.ui.model.TopicMessageDTO;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,6 +58,21 @@ public class MessageFilters {
   public static Predicate<TopicMessageDTO> containsStringFilter(String string) {
     return msg -> CS.contains(msg.getKey(), string)
         || CS.contains(msg.getValue(), string) || headersContains(msg, string);
+  }
+
+  public static Predicate<TopicMessageDTO> containsAllStringFilters(@Nullable List<String> strings) {
+    Predicate<TopicMessageDTO> filter = noop();
+    if (strings == null) {
+      return filter;
+    }
+
+    for (String stringFilter : strings) {
+      if (stringFilter != null && !stringFilter.isEmpty()) {
+        filter = filter.and(containsStringFilter(stringFilter));
+      }
+    }
+
+    return filter;
   }
 
   private static boolean headersContains(TopicMessageDTO msg, String searchString) {
