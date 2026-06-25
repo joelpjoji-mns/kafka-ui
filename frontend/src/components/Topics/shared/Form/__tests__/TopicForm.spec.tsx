@@ -81,6 +81,6 @@ describe('TopicForm', () => {
     );
     await userEvent.click(screen.getByRole('button', { name: 'Create topic' }));
 
-    expect(onSubmit).toBeCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
   });
 });
