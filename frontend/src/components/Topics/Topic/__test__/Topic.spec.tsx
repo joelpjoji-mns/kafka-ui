@@ -6,6 +6,8 @@ import Details from 'components/Topics/Topic/Topic';
 import { render, WithRoute } from 'lib/testHelpers';
 import {
   clusterTopicConsumerGroupsPath,
+  clusterTopicDataProfilePath,
+  clusterTopicDeveloperPath,
   clusterTopicEditRelativePath,
   clusterTopicMessagesPath,
   clusterTopicPath,
@@ -57,6 +59,12 @@ jest.mock(
 );
 jest.mock('components/Topics/Topic/Statistics/Statistics', () => () => (
   <>StatisticsMock</>
+));
+jest.mock('components/Topics/Topic/DataProfile/DataProfile', () => () => (
+  <>DataProfileMock</>
+));
+jest.mock('components/Topics/Topic/DeveloperHub/DeveloperHub', () => () => (
+  <>DeveloperHubMock</>
 ));
 
 const mockDelete = jest.fn();
@@ -210,7 +218,7 @@ describe('Details', () => {
       const confirmBtn = screen.getByRole('button', { name: /Confirm/i });
 
       await waitFor(() => userEvent.click(confirmBtn));
-      expect(mockRecreate).toBeCalledTimes(1);
+      expect(mockRecreate).toHaveBeenCalledTimes(1);
     });
 
     it('closes popup confirmation window after click on Cancel button', async () => {
@@ -265,6 +273,20 @@ describe('Details', () => {
         clusterTopicStatisticsPath(),
         'Statistics',
         'StatisticsMock'
+      );
+    });
+    it('renders Profile tab', () => {
+      itExpectsCorrectPageRendered(
+        clusterTopicDataProfilePath(),
+        'Profile',
+        'DataProfileMock'
+      );
+    });
+    it('renders Developer tab', () => {
+      itExpectsCorrectPageRendered(
+        clusterTopicDeveloperPath(),
+        'Developer',
+        'DeveloperHubMock'
       );
     });
   });
