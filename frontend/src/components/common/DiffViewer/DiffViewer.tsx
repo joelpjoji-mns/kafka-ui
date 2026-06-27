@@ -1,10 +1,10 @@
-import { diff as DiffEditor } from 'react-ace';
+import { diff as DiffComponent } from 'react-ace';
 import 'ace-builds/src-noconflict/ace';
 import 'ace-builds/src-noconflict/mode-json5';
 import 'ace-builds/src-noconflict/mode-protobuf';
 import 'ace-builds/src-noconflict/theme-textmate';
 import React from 'react';
-import { IDiffEditorProps } from 'react-ace/lib/diff';
+import type { IDiffEditorProps } from 'react-ace';
 import { SchemaType } from 'generated-sources';
 
 interface DiffViewerProps extends IDiffEditorProps {
@@ -12,7 +12,10 @@ interface DiffViewerProps extends IDiffEditorProps {
   schemaType: string;
 }
 
-const DiffViewer = React.forwardRef<DiffEditor | null, DiffViewerProps>(
+const DiffViewer = React.forwardRef<
+  React.ComponentRef<typeof DiffComponent> | null,
+  DiffViewerProps
+>(
   (props, ref) => {
     const { isFixedHeight, schemaType, ...rest } = props;
     const autoHeight =
@@ -24,7 +27,7 @@ const DiffViewer = React.forwardRef<DiffEditor | null, DiffViewerProps>(
         : 500;
     return (
       <div>
-        <DiffEditor
+        <DiffComponent
           name="diff-editor"
           ref={ref}
           mode={
