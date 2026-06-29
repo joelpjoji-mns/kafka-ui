@@ -15,7 +15,7 @@ interface OptionProps {
   disabled?: boolean;
 }
 
-export const Wrapper = styled.div<InputProps>(
+export const Wrapper = styled.div<Pick<InputProps, 'inputSize'>>(
   ({ inputSize }) => css`
     position: relative;
     &:hover {
