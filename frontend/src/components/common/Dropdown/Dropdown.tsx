@@ -1,14 +1,26 @@
-import { MenuProps } from '@szhsin/react-menu';
+import { ControlledMenuProps } from '@szhsin/react-menu';
 import React, { cloneElement, PropsWithChildren, useRef } from 'react';
 import VerticalElipsisIcon from 'components/common/Icons/VerticalElipsisIcon';
 import useBoolean from 'lib/hooks/useBoolean';
 
 import * as S from './Dropdown.styled';
 
-interface DropdownProps extends PropsWithChildren<Partial<MenuProps>> {
+type DropdownTriggerProps = {
+  'aria-label'?: string;
+  disabled?: boolean;
+  onClick?: React.MouseEventHandler<HTMLElement>;
+};
+
+interface DropdownProps
+  extends PropsWithChildren<
+    Omit<
+      Partial<ControlledMenuProps>,
+      'anchorRef' | 'menuButton' | 'onClose' | 'state'
+    >
+  > {
   label?: React.ReactNode;
   disabled?: boolean;
-  openBtnEl?: React.ReactElement;
+  openBtnEl?: React.ReactElement<DropdownTriggerProps>;
   onClose?: () => void;
 }
 
@@ -16,15 +28,14 @@ const Dropdown: React.FC<DropdownProps> = ({
   label,
   disabled,
   children,
-  offsetY,
   openBtnEl,
   onClose,
   ...props
 }) => {
-  const ref = useRef(null);
+  const ref = useRef<HTMLElement | null>(null);
   const { value: isOpen, setFalse, setTrue } = useBoolean(false);
 
-  const handleClick: React.MouseEventHandler<HTMLButtonElement> = (e) => {
+  const handleClick: React.MouseEventHandler<HTMLElement> = (e) => {
     e.preventDefault();
     e.stopPropagation();
     setTrue();
@@ -33,7 +44,12 @@ const Dropdown: React.FC<DropdownProps> = ({
   return (
     <S.Wrapper>
       {openBtnEl ? (
-        <span ref={ref} style={{ display: 'inline-block' }}>
+        <span
+          ref={(element) => {
+            ref.current = element;
+          }}
+          style={{ display: 'inline-block' }}
+        >
           {cloneElement(openBtnEl, {
             onClick: handleClick,
             disabled,
@@ -43,7 +59,9 @@ const Dropdown: React.FC<DropdownProps> = ({
       ) : (
         <S.DropdownButton
           onClick={handleClick}
-          ref={ref}
+          ref={(element) => {
+            ref.current = element;
+          }}
           aria-label={props['aria-label'] || 'Dropdown Toggle'}
           disabled={disabled}
         >
@@ -56,7 +74,7 @@ const Dropdown: React.FC<DropdownProps> = ({
       )}
 
       <S.Dropdown
-        anchorRef={ref}
+        anchorRef={ref as React.RefObject<Element>}
         state={isOpen ? 'open' : 'closed'}
         onMouseLeave={setFalse}
         onClose={() => {
@@ -65,12 +83,7 @@ const Dropdown: React.FC<DropdownProps> = ({
         }}
         align={props.align || 'end'}
         direction={props.direction || 'bottom'}
-        offsetY={offsetY ?? 10}
         viewScroll="auto"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-        }}
       >
         {children}
       </S.Dropdown>
