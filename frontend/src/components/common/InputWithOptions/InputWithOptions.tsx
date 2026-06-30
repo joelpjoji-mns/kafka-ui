@@ -44,7 +44,7 @@ const InputWithOptions = ({
     }
   };
 
-  const selectContainerRef = useRef(null);
+  const selectContainerRef = useRef<HTMLDivElement | null>(null);
   const clickOutsideHandler = () => {
     const isDisabledOption = (optionText: string) =>
       options.some((option) => option.value === optionText && option.disabled);
