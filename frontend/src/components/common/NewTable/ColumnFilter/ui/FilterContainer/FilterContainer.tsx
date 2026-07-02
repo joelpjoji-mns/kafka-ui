@@ -25,7 +25,7 @@ export const FilterContainer = <T,>(props: Props<T>) => {
     top: 0,
   });
 
-  const ref = useRef(null);
+  const ref = useRef<HTMLDivElement | null>(null);
   useClickOutside(ref, toggle);
 
   const resetFilter = () => column.setFilterValue('');
