@@ -234,16 +234,24 @@ export const EmptyTableMessageCell = styled.td`
 export const Pagination = styled.div`
   display: flex;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
   padding: 16px;
   line-height: 32px;
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `;
 
 export const Pages = styled.div`
   display: flex;
   justify-content: left;
-  white-space: nowrap;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 `;
 
 export const GoToPage = styled.label`
@@ -259,10 +267,15 @@ export const PageInfo = styled.div`
   justify-content: right;
   gap: 8px;
   font-size: 14px;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-  margin-left: 16px;
+  flex-wrap: wrap;
+  margin-left: auto;
+  min-width: 0;
   color: ${({ theme }) => theme.table.pagination.info};
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    justify-content: left;
+    margin-left: 0;
+  }
 `;
 
 export const Ellipsis = styled.div`
