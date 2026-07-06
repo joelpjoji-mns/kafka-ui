@@ -35,6 +35,8 @@ export const Select = styled.ul<Props>`
   border-radius: 4px;
   font-size: 14px;
   width: fit-content;
+  max-width: 100%;
+  box-sizing: border-box;
   padding-left: 16px;
   padding-right: 12px;
   color: ${({ theme, disabled }) =>
@@ -64,6 +66,7 @@ export const SelectedOptionWrapper = styled.div`
   display: flex;
   align-items: center;
   gap: 5px;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 `;
@@ -82,6 +85,7 @@ export const OptionList = styled.ul`
   color: ${({ theme }) => theme.select.color.normal};
   overflow-y: auto;
   z-index: 12;
+  box-sizing: border-box;
   max-width: 300px;
   min-width: 100%;
   align-items: center;
@@ -101,6 +105,17 @@ export const OptionList = styled.ul`
 
   &::-webkit-scrollbar:horizontal {
     height: 7px;
+  }
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    right: 0;
+    left: auto;
+    max-width: calc(100vw - 24px);
+
+    & div {
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
   }
 `;
 
