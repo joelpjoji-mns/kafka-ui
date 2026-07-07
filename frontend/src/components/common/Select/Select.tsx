@@ -52,7 +52,7 @@ const Select = <T extends object>(
     if (!disabled) setShowOptions(!showOptions);
   };
 
-  const selectContainerRef = useRef(null);
+  const selectContainerRef = useRef<HTMLDivElement | null>(null);
   const clickOutsideHandler = () => setShowOptions(false);
   useClickOutside(selectContainerRef, clickOutsideHandler);
 
