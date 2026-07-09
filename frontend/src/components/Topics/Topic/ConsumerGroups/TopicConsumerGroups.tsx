@@ -1,5 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { clusterConsumerGroupsPath, RouteParamsClusterTopic } from 'lib/paths';
+import {
+  clusterConsumerGroupsPath,
+  clusterTopicConsumerGroupsPath,
+  RouteParamsClusterTopic,
+} from 'lib/paths';
 import { ConsumerGroup } from 'generated-sources';
 import useAppParams from 'lib/hooks/useAppParams';
 import { useTopicConsumerGroups } from 'lib/hooks/api/topics';
@@ -74,6 +78,10 @@ const TopicConsumerGroups: React.FC = () => {
           to={`${clusterConsumerGroupsPath(clusterName)}/${
             row.original.groupId
           }`}
+          state={{
+            goBackPath: clusterTopicConsumerGroupsPath(clusterName, topicName),
+            goBackText: topicName,
+          }}
         />
       ),
     },

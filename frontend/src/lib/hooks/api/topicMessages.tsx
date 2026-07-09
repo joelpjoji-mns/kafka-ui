@@ -384,7 +384,9 @@ export function useUploadMessages() {
       if (valueSerde) formData.set('valueSerde', valueSerde);
       if (headersJson) formData.set('headersJson', headersJson);
       if (messageLimit) formData.set('messageLimit', messageLimit);
-      partitions?.forEach((item) => formData.append('partitions', item.toString()));
+      partitions?.forEach((item) =>
+        formData.append('partitions', item.toString())
+      );
 
       const response = await fetch(
         `${BASE_PARAMS.basePath}/api/clusters/${encodeURIComponent(

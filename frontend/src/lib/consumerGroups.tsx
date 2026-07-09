@@ -1,5 +1,10 @@
 import React from 'react';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
+import Tooltip from 'components/common/Tooltip/Tooltip';
+import WarningRedIcon from 'components/common/Icons/WarningRedIcon';
+import { useLocalStorage } from 'lib/hooks/useLocalStorage';
+
+export const CONSUMER_LAG_THRESHOLD_KEY = 'consumer-lag-threshold';
 
 export type LagTrend = 'up' | 'down' | 'same' | 'none';
 export type LagValue = number | undefined;
@@ -87,11 +92,19 @@ export function buildNextPartitionsLagMap(
   );
 }
 
-export const LagContainer = styled.div<{ $lagTrend: LagTrend }>`
+export const LagContainer = styled.div<{
+  $lagTrend: LagTrend;
+  $alert?: boolean;
+}>`
   display: flex;
   align-items: center;
   gap: 4px;
   color: ${({ theme, $lagTrend }) => theme.lag[$lagTrend]};
+  ${({ $alert }) =>
+    $alert &&
+    css`
+      font-weight: 700;
+    `}
 `;
 
 export const LagTrendComponent = ({
@@ -101,6 +114,8 @@ export const LagTrendComponent = ({
   lag: number | string | undefined | null;
   trend?: LagTrend;
 }) => {
+  const [threshold] = useLocalStorage<number>(CONSUMER_LAG_THRESHOLD_KEY, 0);
+
   if (lag === undefined || lag === null) return 'N/A';
 
   const effectiveTrend: LagTrend = trend ?? 'none';
@@ -112,10 +127,25 @@ export const LagTrendComponent = ({
     trendElement = '▼';
   }
 
+  const numericLag = typeof lag === 'number' ? lag : Number(lag);
+  const exceedsThreshold =
+    threshold > 0 && Number.isFinite(numericLag) && numericLag >= threshold;
+
   return (
-    <LagContainer $lagTrend={effectiveTrend}>
+    <LagContainer $lagTrend={effectiveTrend} $alert={exceedsThreshold}>
       <span>{lag}</span>
       {trendElement && <span>{trendElement}</span>}
+      {exceedsThreshold && (
+        <Tooltip
+          value={
+            <span role="img" aria-label="lag alert">
+              <WarningRedIcon />
+            </span>
+          }
+          content={`Lag is at or above the alert threshold (${threshold})`}
+          placement="top"
+        />
+      )}
     </LagContainer>
   );
 };

@@ -98,6 +98,14 @@ export type ClusterGroupParam = {
   clusterName: ClusterName;
 };
 
+// Router navigation state used to preserve where a consumer group was opened
+// from (e.g. a topic's Consumer Groups tab) so that reset/delete return there
+// instead of always falling back to the global consumers list.
+export interface ConsumerGroupBackReference {
+  goBackPath?: string;
+  goBackText?: string;
+}
+
 // Schemas
 export const clusterSchemasRelativePath = 'schemas';
 export const clusterSchemaNewRelativePath = 'create-new';

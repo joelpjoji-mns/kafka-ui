@@ -78,3 +78,33 @@ describe('MessageContent screen', () => {
     });
   });
 });
+
+describe('MessageContent toolbar', () => {
+  it('renders a contextual copy button for the active tab', () => {
+    render(setupWrapper());
+    expect(
+      screen.getByRole('button', { name: 'Copy value' })
+    ).toBeInTheDocument();
+  });
+
+  it('updates the copy button label when a different tab is selected', async () => {
+    render(setupWrapper());
+    await userEvent.click(screen.getByText('Key'));
+    expect(
+      screen.getByRole('button', { name: 'Copy key' })
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByText('Headers'));
+    expect(
+      screen.getByRole('button', { name: 'Copy headers' })
+    ).toBeInTheDocument();
+  });
+
+  it('renders custom actions passed via the actions prop', () => {
+    render(
+      setupWrapper({
+        actions: <button type="button">custom-message-action</button>,
+      })
+    );
+    expect(screen.getByText('custom-message-action')).toBeInTheDocument();
+  });
+});

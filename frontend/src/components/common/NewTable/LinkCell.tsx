@@ -6,6 +6,8 @@ interface LinkCellProps {
   value: string;
   to?: string;
   wordBreak?: boolean;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  state?: any;
 }
 
 const NavLinkStyled = styled(NavLink)<{ $wordBreak?: boolean }>`
@@ -24,6 +26,7 @@ const LinkCell: React.FC<LinkCellProps> = ({
   value,
   to = '',
   wordBreak = false,
+  state,
 }) => {
   const handleClick: React.MouseEventHandler = (e) => e.stopPropagation();
   return (
@@ -32,6 +35,7 @@ const LinkCell: React.FC<LinkCellProps> = ({
       title={value}
       onClick={handleClick}
       $wordBreak={wordBreak}
+      state={state}
     >
       {value}
     </NavLinkStyled>

@@ -16,6 +16,8 @@ import { useDownloadMessagesZip, useSerdes } from 'lib/hooks/api/topicMessages';
 import useAppParams from 'lib/hooks/useAppParams';
 import { RouteParamsClusterTopic } from 'lib/paths';
 
+import DownloadPresets, { DownloadConfig } from './DownloadPresets';
+
 interface Option<T> {
   label: string;
   value: T;
@@ -43,10 +45,14 @@ const downloadModeOptions: Option<DownloadMode>[] = [
 ];
 
 const formatOptions: Option<string>[] = [
-  { label: 'Text export', value: 'TEXT' },
-  { label: 'JSON metadata + payload', value: 'JSON' },
-  { label: 'Payload only', value: 'VALUE_ONLY' },
+  { label: 'Text export (ZIP, one file per message)', value: 'TEXT' },
+  { label: 'JSON metadata + payload (ZIP)', value: 'JSON' },
+  { label: 'Payload only (ZIP)', value: 'VALUE_ONLY' },
+  { label: 'CSV (single file)', value: 'CSV' },
+  { label: 'NDJSON (single file)', value: 'NDJSON' },
 ];
+
+const singleFileFormats = new Set(['CSV', 'NDJSON']);
 
 const partitionModeOptions: Option<string>[] = [
   { label: 'All partitions', value: 'ALL' },
@@ -54,7 +60,9 @@ const partitionModeOptions: Option<string>[] = [
 ];
 
 const filterOptions = (options: PartitionOption[], filter: string) =>
-  options.filter(({ label }) => label.toLowerCase().includes(filter.toLowerCase()));
+  options.filter(({ label }) =>
+    label.toLowerCase().includes(filter.toLowerCase())
+  );
 
 const toEpochMillis = (value: string) => {
   if (!value) return undefined;
@@ -80,7 +88,9 @@ const Download: React.FC = () => {
   const downloadMessagesZip = useDownloadMessagesZip();
 
   const [partitionMode, setPartitionMode] = useState('ALL');
-  const [selectedPartitions, setSelectedPartitions] = useState<PartitionOption[]>([]);
+  const [selectedPartitions, setSelectedPartitions] = useState<
+    PartitionOption[]
+  >([]);
   const [downloadMode, setDownloadMode] = useState<DownloadMode>('LATEST');
   const [limit, setLimit] = useState('100');
   const [offset, setOffset] = useState('0');
@@ -107,21 +117,60 @@ const Download: React.FC = () => {
     if (!valueSerde) setValueSerde(preferredValueSerde);
   }, [keySerde, preferredKeySerde, preferredValueSerde, valueSerde]);
 
-  const isOffsetMode = downloadMode === 'FROM_OFFSET' || downloadMode === 'TO_OFFSET';
+  const isOffsetMode =
+    downloadMode === 'FROM_OFFSET' || downloadMode === 'TO_OFFSET';
   const isFromTimeVisible =
     downloadMode === 'FROM_TIMESTAMP' || downloadMode === 'TIMEFRAME';
-  const isToTimeVisible = downloadMode === 'TO_TIMESTAMP' || downloadMode === 'TIMEFRAME';
+  const isToTimeVisible =
+    downloadMode === 'TO_TIMESTAMP' || downloadMode === 'TIMEFRAME';
   const resolvedLimit = numericValue(limit, 100);
   const selectedPartitionValues =
     partitionMode === 'SELECTED'
       ? selectedPartitions.map(({ value }) => value)
       : undefined;
 
+  const isSingleFileFormat = singleFileFormats.has(format);
+  const downloadKind = isSingleFileFormat ? format : 'ZIP';
+
+  const currentConfig: DownloadConfig = {
+    partitionMode,
+    selectedPartitions,
+    downloadMode,
+    limit,
+    offset,
+    fromTime,
+    toTime,
+    format,
+    search,
+    smartFilterId,
+    keySerde,
+    valueSerde,
+  };
+
+  const applyPreset = (config: DownloadConfig) => {
+    setPartitionMode(config.partitionMode);
+    setSelectedPartitions(config.selectedPartitions ?? []);
+    setDownloadMode(config.downloadMode as DownloadMode);
+    setLimit(config.limit);
+    setOffset(config.offset);
+    setFromTime(config.fromTime);
+    setToTime(config.toTime);
+    setFormat(config.format);
+    setSearch(config.search);
+    setSmartFilterId(config.smartFilterId);
+    setKeySerde(config.keySerde);
+    setValueSerde(config.valueSerde);
+  };
+
   const handleDownload = () => {
-    const resolvedMode = downloadMode === 'TIMEFRAME' ? 'FROM_TIMESTAMP' : downloadMode;
+    const resolvedMode =
+      downloadMode === 'TIMEFRAME' ? 'FROM_TIMESTAMP' : downloadMode;
     const timestamp =
-      downloadMode === 'TO_TIMESTAMP' ? toEpochMillis(toTime) : toEpochMillis(fromTime);
-    const timestampTo = downloadMode === 'TIMEFRAME' ? toEpochMillis(toTime) : undefined;
+      downloadMode === 'TO_TIMESTAMP'
+        ? toEpochMillis(toTime)
+        : toEpochMillis(fromTime);
+    const timestampTo =
+      downloadMode === 'TIMEFRAME' ? toEpochMillis(toTime) : undefined;
 
     downloadMessagesZip.mutate({
       clusterName,
@@ -147,8 +196,9 @@ const Download: React.FC = () => {
           <Eyebrow>Topic export center</Eyebrow>
           <Title>Download messages</Title>
           <Description>
-            Export one file per Kafka message as a ZIP with partition, offset,
-            timestamp, serde-aware payloads, filters, and window controls.
+            Export Kafka messages as a ZIP (one file per message) or as a single
+            CSV or NDJSON file, with partition, offset, timestamp, serde-aware
+            payloads, filters, and window controls.
           </Description>
         </div>
         <Button
@@ -157,7 +207,9 @@ const Download: React.FC = () => {
           onClick={handleDownload}
           disabled={downloadMessagesZip.isPending}
         >
-          {downloadMessagesZip.isPending ? 'Preparing ZIP...' : 'Download ZIP'}
+          {downloadMessagesZip.isPending
+            ? `Preparing ${downloadKind}...`
+            : `Download ${downloadKind}`}
         </Button>
       </Hero>
 
@@ -180,7 +232,9 @@ const Download: React.FC = () => {
               <MultiSelect
                 options={partitionOptions}
                 filterOptions={filterOptions}
-                onChange={(value: PartitionOption[]) => setSelectedPartitions(value)}
+                onChange={(value: PartitionOption[]) =>
+                  setSelectedPartitions(value)
+                }
                 value={selectedPartitions}
                 minWidth="100%"
                 labelledBy="downloadPartitionOptions"
@@ -213,7 +267,9 @@ const Download: React.FC = () => {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={limit}
-                onChange={({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
+                onChange={({
+                  target: { value },
+                }: ChangeEvent<HTMLInputElement>) => {
                   setLimit(value.replace(/\D/g, ''));
                 }}
               />
@@ -227,7 +283,9 @@ const Download: React.FC = () => {
                   inputMode="numeric"
                   pattern="[0-9]*"
                   value={offset}
-                  onChange={({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
+                  onChange={({
+                    target: { value },
+                  }: ChangeEvent<HTMLInputElement>) => {
                     setOffset(value.replace(/\D/g, ''));
                   }}
                 />
@@ -240,7 +298,9 @@ const Download: React.FC = () => {
                   inputSize="M"
                   type="datetime-local"
                   value={fromTime}
-                  onChange={({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
+                  onChange={({
+                    target: { value },
+                  }: ChangeEvent<HTMLInputElement>) => {
                     setFromTime(value);
                   }}
                 />
@@ -248,12 +308,18 @@ const Download: React.FC = () => {
             )}
             {isToTimeVisible && (
               <Field>
-                <Label>{downloadMode === 'TIMEFRAME' ? 'To time' : 'At / before time'}</Label>
+                <Label>
+                  {downloadMode === 'TIMEFRAME'
+                    ? 'To time'
+                    : 'At / before time'}
+                </Label>
                 <Input
                   inputSize="M"
                   type="datetime-local"
                   value={toTime}
-                  onChange={({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
+                  onChange={({
+                    target: { value },
+                  }: ChangeEvent<HTMLInputElement>) => {
                     setToTime(value);
                   }}
                 />
@@ -310,7 +376,9 @@ const Download: React.FC = () => {
                 type="text"
                 value={search}
                 placeholder="Search payload/key/header text"
-                onChange={({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
+                onChange={({
+                  target: { value },
+                }: ChangeEvent<HTMLInputElement>) => {
                   setSearch(value);
                 }}
               />
@@ -322,12 +390,22 @@ const Download: React.FC = () => {
                 type="text"
                 value={smartFilterId}
                 placeholder="Optional registered filter id"
-                onChange={({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
+                onChange={({
+                  target: { value },
+                }: ChangeEvent<HTMLInputElement>) => {
                   setSmartFilterId(value);
                 }}
               />
             </Field>
           </FlexBox>
+        </Card>
+
+        <Card>
+          <CardTitle>5. Presets</CardTitle>
+          <DownloadPresets
+            currentConfig={currentConfig}
+            onApply={applyPreset}
+          />
         </Card>
       </Grid>
     </Page>

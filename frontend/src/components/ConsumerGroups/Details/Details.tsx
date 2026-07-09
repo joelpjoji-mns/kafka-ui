@@ -1,11 +1,12 @@
 import React, { useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import useAppParams from 'lib/hooks/useAppParams';
 import {
   clusterConnectConnectorPath,
   clusterConsumerGroupResetRelativePath,
   clusterConsumerGroupsPath,
   ClusterGroupParam,
+  ConsumerGroupBackReference,
 } from 'lib/paths';
 import Search from 'components/common/Search/Search';
 import ClusterContext from 'components/contexts/ClusterContext';
@@ -41,9 +42,15 @@ const isConnect = (groupId: string | undefined) =>
 
 const Details: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const backReference = (location.state as ConsumerGroupBackReference) ?? null;
   const { isReadOnly, hasKafkaConnectConfigured } = useContext(ClusterContext);
   const routeParams = useAppParams<ClusterGroupParam>();
   const { clusterName, consumerGroupID } = routeParams;
+
+  const goBackPath =
+    backReference?.goBackPath ?? clusterConsumerGroupsPath(clusterName);
+  const goBackText = backReference?.goBackText ?? 'Consumers';
 
   const {
     data: consumerGroup,
@@ -73,11 +80,13 @@ const Details: React.FC = () => {
 
   const onDelete = async () => {
     await deleteConsumerGroup.mutateAsync();
-    navigate('../');
+    navigate(goBackPath);
   };
 
   const onResetOffsets = () => {
-    navigate(clusterConsumerGroupResetRelativePath);
+    navigate(clusterConsumerGroupResetRelativePath, {
+      state: backReference ?? undefined,
+    });
   };
 
   const hasAssignedTopics = consumerGroup?.topics !== 0;
@@ -95,8 +104,8 @@ const Details: React.FC = () => {
             <div>
               <ResourcePageHeading
                 text={consumerGroupID}
-                backTo={clusterConsumerGroupsPath(clusterName)}
-                backText="Consumers"
+                backTo={goBackPath}
+                backText={goBackText}
               >
                 <Button
                   buttonType="secondary"

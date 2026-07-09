@@ -7,6 +7,8 @@ import {
 } from 'generated-sources';
 import { formatTimestamp } from 'lib/dateTimeHelpers';
 import { useTimezone } from 'lib/hooks/useTimezones';
+import { Button } from 'components/common/Button/Button';
+import useDataSaver from 'lib/hooks/useDataSaver';
 
 import * as S from './MessageContent.styled';
 import Serde from './components/Serde/Serde';
@@ -25,7 +27,14 @@ export interface MessageContentProps {
   valueSerde?: string;
   valueDeserializeProperties?: TopicMessage['valueDeserializeProperties'];
   keyDeserializeProperties?: TopicMessage['keyDeserializeProperties'];
+  actions?: React.ReactNode;
 }
+
+const copyLabels: Record<Tab, string> = {
+  key: 'Copy key',
+  content: 'Copy value',
+  headers: 'Copy headers',
+};
 
 const MessageContent: React.FC<MessageContentProps> = ({
   messageKey,
@@ -39,6 +48,7 @@ const MessageContent: React.FC<MessageContentProps> = ({
   keyDeserializeProperties,
   valueDeserializeProperties,
   valueSerde,
+  actions,
 }) => {
   const { currentTimezone } = useTimezone();
 
@@ -53,6 +63,11 @@ const MessageContent: React.FC<MessageContentProps> = ({
         return JSON.stringify(headers);
     }
   };
+
+  const { copyToClipboard } = useDataSaver(
+    'topic-message',
+    activeTabContent() || ''
+  );
 
   const handleKeyTabClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -81,29 +96,42 @@ const MessageContent: React.FC<MessageContentProps> = ({
       <td colSpan={10}>
         <S.Section>
           <S.ContentBox>
-            <S.Tabs>
-              <S.Tab
-                type="button"
-                $active={activeTab === 'key'}
-                onClick={handleKeyTabClick}
-              >
-                Key
-              </S.Tab>
-              <S.Tab
-                $active={activeTab === 'content'}
-                type="button"
-                onClick={handleContentTabClick}
-              >
-                Value
-              </S.Tab>
-              <S.Tab
-                $active={activeTab === 'headers'}
-                type="button"
-                onClick={handleHeadersTabClick}
-              >
-                Headers
-              </S.Tab>
-            </S.Tabs>
+            <S.Toolbar>
+              <S.Tabs>
+                <S.Tab
+                  type="button"
+                  $active={activeTab === 'key'}
+                  onClick={handleKeyTabClick}
+                >
+                  Key
+                </S.Tab>
+                <S.Tab
+                  $active={activeTab === 'content'}
+                  type="button"
+                  onClick={handleContentTabClick}
+                >
+                  Value
+                </S.Tab>
+                <S.Tab
+                  $active={activeTab === 'headers'}
+                  type="button"
+                  onClick={handleHeadersTabClick}
+                >
+                  Headers
+                </S.Tab>
+              </S.Tabs>
+              <S.ToolbarActions>
+                <Button
+                  buttonType="secondary"
+                  buttonSize="S"
+                  onClick={copyToClipboard}
+                  aria-label={copyLabels[activeTab]}
+                >
+                  {copyLabels[activeTab]}
+                </Button>
+                {actions}
+              </S.ToolbarActions>
+            </S.Toolbar>
             <EditorViewer
               data={activeTabContent() || ''}
               maxLines={28}

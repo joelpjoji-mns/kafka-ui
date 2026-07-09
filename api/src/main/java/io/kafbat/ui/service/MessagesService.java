@@ -114,7 +114,9 @@ public class MessagesService {
   public enum DownloadFormat {
     TEXT,
     JSON,
-    VALUE_ONLY;
+    VALUE_ONLY,
+    CSV,
+    NDJSON;
 
     public static DownloadFormat fromRequest(@Nullable String value) {
       if (value == null || value.isBlank()) {
@@ -126,6 +128,13 @@ public class MessagesService {
         throw new ValidationException("Unsupported download format: " + value);
       }
     }
+
+    public boolean isSingleFile() {
+      return this == CSV || this == NDJSON;
+    }
+  }
+
+  public record DownloadResult(byte[] content, String mediaType, String fileName) {
   }
 
   public enum UploadParseMode {
@@ -434,6 +443,45 @@ public class MessagesService {
                                             @Nullable Long timestamp,
                                             @Nullable Long timestampTo,
                                             DownloadFormat format) {
+    return collectDownloadMessages(cluster, topic, limit, partitions, containsStringFilter, smartFilterId,
+        keySerde, valueSerde, pollingMode, offset, timestamp, timestampTo)
+        .map(messages -> createMessagesZip(topic, messages, format));
+  }
+
+  public Mono<DownloadResult> downloadMessages(KafkaCluster cluster,
+                                               String topic,
+                                               int limit,
+                                               List<Integer> partitions,
+                                               @Nullable String containsStringFilter,
+                                               @Nullable String smartFilterId,
+                                               @Nullable String keySerde,
+                                               @Nullable String valueSerde,
+                                               PollingModeDTO pollingMode,
+                                               @Nullable Long offset,
+                                               @Nullable Long timestamp,
+                                               @Nullable Long timestampTo,
+                                               DownloadFormat format) {
+    String fileName = downloadFileName(topic, limit, pollingMode, format);
+    return collectDownloadMessages(cluster, topic, limit, partitions, containsStringFilter, smartFilterId,
+        keySerde, valueSerde, pollingMode, offset, timestamp, timestampTo)
+        .map(messages -> new DownloadResult(
+            serializeMessages(topic, messages, format),
+            mediaTypeFor(format),
+            fileName));
+  }
+
+  private Mono<List<TopicMessageDTO>> collectDownloadMessages(KafkaCluster cluster,
+                                                              String topic,
+                                                              int limit,
+                                                              List<Integer> partitions,
+                                                              @Nullable String containsStringFilter,
+                                                              @Nullable String smartFilterId,
+                                                              @Nullable String keySerde,
+                                                              @Nullable String valueSerde,
+                                                              PollingModeDTO pollingMode,
+                                                              @Nullable Long offset,
+                                                              @Nullable Long timestamp,
+                                                              @Nullable Long timestampTo) {
     if (limit < 1 || limit > maxPageSize) {
       return Mono.error(new ValidationException(
           "Download limit must be between 1 and " + maxPageSize));
@@ -452,8 +500,7 @@ public class MessagesService {
         .filter(event -> event.getType() == TopicMessageEventDTO.TypeEnum.MESSAGE)
         .map(TopicMessageEventDTO::getMessage)
         .filter(message -> matchesTimestampUpperBound(message, timestampTo))
-        .collectList()
-        .map(messages -> createMessagesZip(topic, messages, format));
+        .collectList();
   }
 
   public Mono<UploadMessagesResult> uploadMessages(KafkaCluster cluster,
@@ -483,9 +530,29 @@ public class MessagesService {
   }
 
   public String downloadFileName(String topic, int limit, PollingModeDTO mode, DownloadFormat format) {
-    String suffix = format == DownloadFormat.JSON ? "json" : "txt";
-    return safeZipName(topic) + "-" + mode.name().toLowerCase(Locale.ROOT) + "-" + limit
-        + "-" + suffix + "-messages.zip";
+    String base = safeZipName(topic) + "-" + mode.name().toLowerCase(Locale.ROOT) + "-" + limit;
+    return switch (format) {
+      case CSV -> base + "-messages.csv";
+      case NDJSON -> base + "-messages.ndjson";
+      case JSON -> base + "-json-messages.zip";
+      default -> base + "-txt-messages.zip";
+    };
+  }
+
+  private static String mediaTypeFor(DownloadFormat format) {
+    return switch (format) {
+      case CSV -> "text/csv";
+      case NDJSON -> "application/x-ndjson";
+      default -> "application/zip";
+    };
+  }
+
+  static byte[] serializeMessages(String topic, List<TopicMessageDTO> messages, DownloadFormat format) {
+    return switch (format) {
+      case CSV -> messagesToCsv(topic, messages).getBytes(StandardCharsets.UTF_8);
+      case NDJSON -> messagesToNdjson(topic, messages).getBytes(StandardCharsets.UTF_8);
+      default -> createMessagesZip(topic, messages, format);
+    };
   }
 
   private Flux<TopicMessageEventDTO> loadMessagesImpl(KafkaCluster cluster,
@@ -580,7 +647,7 @@ public class MessagesService {
     return !message.getTimestamp().toInstant().isAfter(Instant.ofEpochMilli(timestampTo));
   }
 
-  private byte[] createMessagesZip(String topic, List<TopicMessageDTO> messages, DownloadFormat format) {
+  private static byte[] createMessagesZip(String topic, List<TopicMessageDTO> messages, DownloadFormat format) {
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
          ZipOutputStream zipOutputStream = new ZipOutputStream(outputStream, StandardCharsets.UTF_8)) {
 
@@ -895,21 +962,21 @@ public class MessagesService {
     }
   }
 
-  private String messageFileName(TopicMessageDTO message, String safeTopic, DownloadFormat format) {
+  private static String messageFileName(TopicMessageDTO message, String safeTopic, DownloadFormat format) {
     String extension = format == DownloadFormat.JSON ? ".json" : ".txt";
     return message.getOffset() + "Offset-" + message.getPartition() + "Partition-" + safeTopic + "-Topic"
         + extension;
   }
 
-  private String messageContent(String topic, TopicMessageDTO message, DownloadFormat format) {
+  private static String messageContent(String topic, TopicMessageDTO message, DownloadFormat format) {
     return switch (format) {
-      case TEXT -> messageText(topic, message);
       case JSON -> messageJson(topic, message);
       case VALUE_ONLY -> nullToEmpty(message.getValue());
+      default -> messageText(topic, message);
     };
   }
 
-  private String messageJson(String topic, TopicMessageDTO message) {
+  private static Map<String, Object> messageToMap(String topic, TopicMessageDTO message) {
     Map<String, Object> exportedMessage = new LinkedHashMap<>();
     exportedMessage.put("topic", topic);
     exportedMessage.put("partition", message.getPartition());
@@ -923,14 +990,73 @@ public class MessagesService {
     exportedMessage.put("keySerde", message.getKeySerde());
     exportedMessage.put("valueSerde", message.getValueSerde());
     exportedMessage.put("value", message.getValue());
+    return exportedMessage;
+  }
+
+  private static String messageJson(String topic, TopicMessageDTO message) {
     try {
-      return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(exportedMessage);
+      return OBJECT_MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(messageToMap(topic, message));
     } catch (JsonProcessingException e) {
       throw new IllegalStateException("Failed to serialize Kafka message", e);
     }
   }
 
-  private String messageText(String topic, TopicMessageDTO message) {
+  private static String messagesToNdjson(String topic, List<TopicMessageDTO> messages) {
+    StringBuilder builder = new StringBuilder();
+    for (TopicMessageDTO message : messages) {
+      try {
+        builder.append(OBJECT_MAPPER.writeValueAsString(messageToMap(topic, message)));
+      } catch (JsonProcessingException e) {
+        throw new IllegalStateException("Failed to serialize Kafka message", e);
+      }
+      builder.append('\n');
+    }
+    return builder.toString();
+  }
+
+  private static final List<String> CSV_COLUMNS = List.of(
+      "topic", "partition", "offset", "timestamp", "timestampType",
+      "key", "value", "headers", "keySize", "valueSize", "keySerde", "valueSerde");
+
+  private static String messagesToCsv(String topic, List<TopicMessageDTO> messages) {
+    StringBuilder builder = new StringBuilder();
+    builder.append(String.join(",", CSV_COLUMNS)).append("\r\n");
+    for (TopicMessageDTO message : messages) {
+      Map<String, Object> row = messageToMap(topic, message);
+      List<String> cells = new ArrayList<>(CSV_COLUMNS.size());
+      for (String column : CSV_COLUMNS) {
+        Object cell = row.get(column);
+        cells.add(csvEscape(csvCellToString(cell)));
+      }
+      builder.append(String.join(",", cells)).append("\r\n");
+    }
+    return builder.toString();
+  }
+
+  private static String csvCellToString(@Nullable Object cell) {
+    if (cell == null) {
+      return "";
+    }
+    if (cell instanceof Map<?, ?> || cell instanceof List<?>) {
+      try {
+        return OBJECT_MAPPER.writeValueAsString(cell);
+      } catch (JsonProcessingException e) {
+        return String.valueOf(cell);
+      }
+    }
+    return String.valueOf(cell);
+  }
+
+  private static String csvEscape(String value) {
+    boolean mustQuote = value.contains(",") || value.contains("\"")
+        || value.contains("\n") || value.contains("\r");
+    if (!mustQuote) {
+      return value;
+    }
+    return "\"" + value.replace("\"", "\"\"") + "\"";
+  }
+
+  private static String messageText(String topic, TopicMessageDTO message) {
     StringBuilder text = new StringBuilder();
     text.append("Topic: ").append(topic).append(System.lineSeparator());
     text.append("Partition: ").append(message.getPartition()).append(System.lineSeparator());
@@ -947,11 +1073,11 @@ public class MessagesService {
     return text.toString();
   }
 
-  private String nullToEmpty(@Nullable String value) {
+  private static String nullToEmpty(@Nullable String value) {
     return value == null ? "" : value;
   }
 
-  private String safeZipName(String value) {
+  private static String safeZipName(String value) {
     String safe = value.replaceAll(INVALID_ZIP_ENTRY_CHARS, "_").replace("..", "_").trim();
     return safe.isEmpty() ? "topic" : safe;
   }

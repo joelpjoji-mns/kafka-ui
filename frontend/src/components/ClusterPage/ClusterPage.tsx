@@ -23,6 +23,7 @@ import { GlobalSettingsContext } from 'components/contexts/GlobalSettingsContext
 import New from 'components/Connect/New/New';
 import SuspenseQueryComponent from 'components/common/SuspenseQueryComponent/SuspenseQueryComponent';
 import DetailsPage from 'components/Connect/Details/DetailsPage';
+import CommandPalette from 'components/common/CommandPalette/CommandPalette';
 
 const Brokers = React.lazy(() => import('components/Brokers/Brokers'));
 const Topics = React.lazy(() => import('components/Topics/Topics'));
@@ -141,6 +142,7 @@ const ClusterPage: React.FC = () => {
             />
           </Routes>
           <Outlet />
+          <CommandPalette />
         </Suspense>
       </ClusterContext.Provider>
     </Suspense>

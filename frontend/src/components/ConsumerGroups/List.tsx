@@ -28,6 +28,8 @@ import ErrorPage from 'components/ErrorPage/ErrorPage';
 import { LagTrendComponent } from 'lib/consumerGroups';
 import { useConsumerGroupsLagTrends } from 'components/ConsumerGroups/lib/useConsumerGroupsLagTrends';
 
+import LagThresholdControl from './LagThresholdControl';
+
 const List = () => {
   const { clusterName } = useAppParams<ClusterNameRoute>();
   const [searchParams] = useSearchParams();
@@ -162,6 +164,7 @@ const List = () => {
           extraActions={<Fts resourceName="consumer_groups" />}
         />
         <RefreshRateSelect storageKey="consumer-groups-refresh-rate" />
+        <LagThresholdControl />
       </ControlPanelWrapper>
       {(consumerGroups.isLoading || consumerGroups.isRefetching) && (
         <PageLoader offsetY={300} />

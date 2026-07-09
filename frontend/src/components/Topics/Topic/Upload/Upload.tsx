@@ -48,7 +48,9 @@ const keyModeOptions: Option<string>[] = [
 ];
 
 const filterOptions = (options: PartitionOption[], filter: string) =>
-  options.filter(({ label }) => label.toLowerCase().includes(filter.toLowerCase()));
+  options.filter(({ label }) =>
+    label.toLowerCase().includes(filter.toLowerCase())
+  );
 
 const fileSize = (bytes: number) => {
   if (bytes < 1024) return `${bytes} B`;
@@ -70,7 +72,9 @@ const Upload: React.FC = () => {
   const [parseMode, setParseMode] = useState('FILE_PER_MESSAGE');
   const [partitionStrategy, setPartitionStrategy] = useState('ANY');
   const [selectedPartition, setSelectedPartition] = useState<string>();
-  const [targetPartitions, setTargetPartitions] = useState<PartitionOption[]>([]);
+  const [targetPartitions, setTargetPartitions] = useState<PartitionOption[]>(
+    []
+  );
   const [keyMode, setKeyMode] = useState('NONE');
   const [keySerde, setKeySerde] = useState<string | undefined>();
   const [valueSerde, setValueSerde] = useState<string | undefined>();
@@ -113,7 +117,8 @@ const Upload: React.FC = () => {
       parseMode,
       partitionStrategy,
       keyMode,
-      partition: partitionStrategy === 'SELECTED' ? selectedPartition : undefined,
+      partition:
+        partitionStrategy === 'SELECTED' ? selectedPartition : undefined,
       partitions:
         partitionStrategy === 'RANDOM' || partitionStrategy === 'EVEN'
           ? targetPartitions.map(({ value }) => value)
@@ -233,13 +238,16 @@ const Upload: React.FC = () => {
                 />
               </Field>
             )}
-            {(partitionStrategy === 'RANDOM' || partitionStrategy === 'EVEN') && (
+            {(partitionStrategy === 'RANDOM' ||
+              partitionStrategy === 'EVEN') && (
               <Field>
                 <Label>Optional partition subset</Label>
                 <MultiSelect
                   options={partitionOptions}
                   filterOptions={filterOptions}
-                  onChange={(value: PartitionOption[]) => setTargetPartitions(value)}
+                  onChange={(value: PartitionOption[]) =>
+                    setTargetPartitions(value)
+                  }
                   value={targetPartitions}
                   minWidth="100%"
                   labelledBy="uploadPartitionSubset"
@@ -301,7 +309,9 @@ const Upload: React.FC = () => {
                 inputMode="numeric"
                 pattern="[0-9]*"
                 value={messageLimit}
-                onChange={({ target: { value } }: ChangeEvent<HTMLInputElement>) => {
+                onChange={({
+                  target: { value },
+                }: ChangeEvent<HTMLInputElement>) => {
                   setMessageLimit(value.replace(/\D/g, ''));
                 }}
               />
@@ -330,13 +340,30 @@ const Upload: React.FC = () => {
 
       {result && (
         <ResultCard>
-          <CardTitle>{result.dryRun ? 'Dry run result' : 'Produce result'}</CardTitle>
+          <CardTitle>
+            {result.dryRun ? 'Dry run result' : 'Produce result'}
+          </CardTitle>
           <Stats>
-            <Stat><b>{result.filesReceived}</b><span>files received</span></Stat>
-            <Stat><b>{result.entriesRead}</b><span>entries read</span></Stat>
-            <Stat><b>{result.messagesParsed}</b><span>messages parsed</span></Stat>
-            <Stat><b>{result.messagesProduced}</b><span>messages produced</span></Stat>
-            <Stat><b>{result.failures}</b><span>failures</span></Stat>
+            <Stat>
+              <b>{result.filesReceived}</b>
+              <span>files received</span>
+            </Stat>
+            <Stat>
+              <b>{result.entriesRead}</b>
+              <span>entries read</span>
+            </Stat>
+            <Stat>
+              <b>{result.messagesParsed}</b>
+              <span>messages parsed</span>
+            </Stat>
+            <Stat>
+              <b>{result.messagesProduced}</b>
+              <span>messages produced</span>
+            </Stat>
+            <Stat>
+              <b>{result.failures}</b>
+              <span>failures</span>
+            </Stat>
           </Stats>
           {result.previews.length > 0 && (
             <TableWrapper>

@@ -1,22 +1,17 @@
 import React from 'react';
-import useDataSaver from 'lib/hooks/useDataSaver';
-import { Action, ResourceType, TopicMessage } from 'generated-sources';
+import { TopicMessage } from 'generated-sources';
 import MessageToggleIcon from 'components/common/Icons/MessageToggleIcon';
 import IconButtonWrapper from 'components/common/Icons/IconButtonWrapper';
-import { Dropdown, DropdownItem } from 'components/common/Dropdown';
-import { ActionDropdownItem } from 'components/common/ActionComponent';
 import { formatTimestamp, timeAgo } from 'lib/dateTimeHelpers';
 import { JSONPath } from 'jsonpath-plus';
 import Ellipsis from 'components/common/Ellipsis/Ellipsis';
 import WarningRedIcon from 'components/common/Icons/WarningRedIcon';
 import Tooltip from 'components/common/Tooltip/Tooltip';
 import { useTimezone } from 'lib/hooks/useTimezones';
-import useAppParams from 'lib/hooks/useAppParams';
-import { RouteParamsClusterTopic } from 'lib/paths';
-import { useTopicActions } from 'components/contexts/TopicActionsContext';
 import ClusterContext from 'components/contexts/ClusterContext';
 
 import MessageContent from './MessageContent/MessageContent';
+import MessageActions from './MessageActions';
 import * as S from './MessageContent/MessageContent.styled';
 
 export interface PreviewFilter {
@@ -32,8 +27,6 @@ export interface Props {
 
 const Message: React.FC<Props> = ({ message, keyFilters, contentFilters }) => {
   const { currentTimezone } = useTimezone();
-  const { topicName } = useAppParams<RouteParamsClusterTopic>();
-  const { openSidebarWithMessage } = useTopicActions();
   const [isOpen, setIsOpen] = React.useState(false);
   const { messageRelativeTimestamp } = React.useContext(ClusterContext);
 
@@ -52,21 +45,6 @@ const Message: React.FC<Props> = ({ message, keyFilters, contentFilters }) => {
     valueDeserializeProperties,
     keyDeserializeProperties,
   } = message;
-
-  const savedMessageJson = {
-    Value: value,
-    Offset: offset,
-    Key: key,
-    Partition: partition,
-    Headers: headers,
-    Timestamp: timestamp,
-  };
-
-  const savedMessage = JSON.stringify(savedMessageJson, null, '\t');
-  const { copyToClipboard, saveFile } = useDataSaver(
-    'topic-message',
-    savedMessage || ''
-  );
 
   const toggleIsOpen = () => setIsOpen(!isOpen);
 
@@ -158,30 +136,7 @@ const Message: React.FC<Props> = ({ message, keyFilters, contentFilters }) => {
         </S.DataCell>
         <td style={{ width: '5%' }}>
           <div style={{ visibility: vEllipsisOpen ? 'visible' : 'hidden' }}>
-            <Dropdown>
-              <DropdownItem
-                aria-label="Copy to clipboard"
-                onClick={copyToClipboard}
-              >
-                Copy to clipboard
-              </DropdownItem>
-              <DropdownItem aria-label="Save as a file" onClick={saveFile}>
-                Save as a file
-              </DropdownItem>
-              <ActionDropdownItem
-                aria-label="Reproduce message"
-                onClick={() => {
-                  openSidebarWithMessage(message);
-                }}
-                permission={{
-                  resource: ResourceType.TOPIC,
-                  action: Action.MESSAGES_PRODUCE,
-                  value: topicName,
-                }}
-              >
-                Reproduce message
-              </ActionDropdownItem>
-            </Dropdown>
+            <MessageActions message={message} />
           </div>
         </td>
       </S.ClickableRow>
@@ -198,6 +153,7 @@ const Message: React.FC<Props> = ({ message, keyFilters, contentFilters }) => {
           valueSerde={valueSerde}
           valueDeserializeProperties={valueDeserializeProperties}
           keyDeserializeProperties={keyDeserializeProperties}
+          actions={<MessageActions message={message} />}
         />
       )}
     </>

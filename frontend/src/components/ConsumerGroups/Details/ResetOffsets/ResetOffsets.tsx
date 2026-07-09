@@ -1,6 +1,11 @@
 import React from 'react';
-import { clusterConsumerGroupsPath, ClusterGroupParam } from 'lib/paths';
+import {
+  clusterConsumerGroupsPath,
+  ClusterGroupParam,
+  ConsumerGroupBackReference,
+} from 'lib/paths';
 import 'react-datepicker/dist/react-datepicker.css';
+import { useLocation } from 'react-router-dom';
 import useAppParams from 'lib/hooks/useAppParams';
 import { useConsumerGroupDetails } from 'lib/hooks/api/consumers';
 import PageLoader from 'components/common/PageLoader/PageLoader';
@@ -14,6 +19,8 @@ import Form from './Form';
 
 const ResetOffsets: React.FC = () => {
   const routerParams = useAppParams<ClusterGroupParam>();
+  const location = useLocation();
+  const backReference = (location.state as ConsumerGroupBackReference) ?? null;
 
   const { consumerGroupID } = routerParams;
   const consumerGroup = useConsumerGroupDetails(routerParams);
@@ -39,8 +46,11 @@ const ResetOffsets: React.FC = () => {
     <>
       <ResourcePageHeading
         text={consumerGroupID}
-        backTo={clusterConsumerGroupsPath(routerParams.clusterName)}
-        backText="Consumers"
+        backTo={
+          backReference?.goBackPath ??
+          clusterConsumerGroupsPath(routerParams.clusterName)
+        }
+        backText={backReference?.goBackText ?? 'Consumers'}
       />
       <Form
         defaultValues={defaultValues}

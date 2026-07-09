@@ -118,8 +118,7 @@ public class MessagesController extends AbstractController implements MessagesAp
           int downloadLimit = messagesService.resolveDownloadLimit(limit);
           PollingModeDTO pollingMode = resolveDownloadMode(exchange);
           DownloadFormat format = DownloadFormat.fromRequest(firstQueryParam(exchange, "format"));
-          String fileName = messagesService.downloadFileName(topicName, downloadLimit, pollingMode, format);
-          return messagesService.downloadMessagesAsZip(
+          return messagesService.downloadMessages(
                   getCluster(clusterName),
                   topicName,
                   downloadLimit,
@@ -134,17 +133,17 @@ public class MessagesController extends AbstractController implements MessagesAp
                   queryParamAsLong(exchange, "timestampTo"),
                   format
               )
-              .map(zipBytes -> ResponseEntity.ok()
-                  .contentType(MediaType.parseMediaType("application/zip"))
-                  .contentLength(zipBytes.length)
+              .map(result -> ResponseEntity.ok()
+                  .contentType(MediaType.parseMediaType(result.mediaType()))
+                  .contentLength(result.content().length)
                   .header(
                       HttpHeaders.CONTENT_DISPOSITION,
                       ContentDisposition.attachment()
-                          .filename(fileName, StandardCharsets.UTF_8)
+                          .filename(result.fileName(), StandardCharsets.UTF_8)
                           .build()
                           .toString()
                   )
-                  .body((Resource) new ByteArrayResource(zipBytes)));
+                  .body((Resource) new ByteArrayResource(result.content())));
         })
     ).doOnEach(sig -> audit(context, sig));
   }
