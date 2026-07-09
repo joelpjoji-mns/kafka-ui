@@ -365,7 +365,7 @@ public class MessagesService {
   public Flux<TopicMessageEventDTO> loadMessages(KafkaCluster cluster,
                                                  String topic,
                                                  ConsumerPosition consumerPosition,
-                                                 @Nullable String containsStringFilter,
+                                                 @Nullable List<String> containsStringFilters,
                                                  @Nullable String filterId,
                                                  @Nullable Integer limit,
                                                  @Nullable String keySerde,
@@ -375,7 +375,7 @@ public class MessagesService {
         topic,
         deserializationService.deserializerFor(cluster, topic, keySerde, valueSerde),
         consumerPosition,
-        getMsgFilter(containsStringFilter, filterId),
+        getMsgFilter(containsStringFilters, filterId),
         fixPageSize(limit)
     );
   }
@@ -491,7 +491,7 @@ public class MessagesService {
         cluster,
         topic,
         ConsumerPosition.create(pollingMode, topic, partitions, timestamp, offset),
-        containsStringFilter,
+        toStringFilters(containsStringFilter),
         smartFilterId,
         limit,
         keySerde,
@@ -593,12 +593,9 @@ public class MessagesService {
         .map(throttleUiPublish(consumerPosition.pollingMode()));
   }
 
-  private Predicate<TopicMessageDTO> getMsgFilter(@Nullable String containsStrFilter,
+  private Predicate<TopicMessageDTO> getMsgFilter(@Nullable List<String> containsStrFilters,
                                                   @Nullable String smartFilterId) {
-    Predicate<TopicMessageDTO> messageFilter = MessageFilters.noop();
-    if (containsStrFilter != null) {
-      messageFilter = messageFilter.and(MessageFilters.containsStringFilter(containsStrFilter));
-    }
+    Predicate<TopicMessageDTO> messageFilter = MessageFilters.containsAllStringFilters(containsStrFilters);
     if (smartFilterId != null) {
       var registered = registeredFilters.getIfPresent(smartFilterId);
       if (registered == null) {
@@ -607,6 +604,10 @@ public class MessagesService {
       messageFilter = messageFilter.and(registered);
     }
     return messageFilter;
+  }
+
+  private static List<String> toStringFilters(@Nullable String containsStringFilter) {
+    return containsStringFilter == null ? List.of() : List.of(containsStringFilter);
   }
 
   private <T> UnaryOperator<T> throttleUiPublish(PollingModeDTO pollingMode) {

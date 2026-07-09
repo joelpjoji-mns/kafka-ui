@@ -1,7 +1,7 @@
 import 'react-datepicker/dist/react-datepicker.css';
 
 import { SerdeUsage, TopicMessageConsuming } from 'generated-sources';
-import React, { ChangeEvent, useMemo, useState } from 'react';
+import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import MultiSelect from 'components/common/MultiSelect/MultiSelect.styled';
 import Select from 'components/common/Select/Select';
 import { Button } from 'components/common/Button/Button';
@@ -34,6 +34,9 @@ export interface FiltersProps {
   consumptionStats?: TopicMessageConsuming;
   isFetching: boolean;
   abortFetchData: () => void;
+  stringFilters: string[];
+  setStringFilter: (index: number, value: string) => void;
+  resetStringFilters: () => void;
 }
 
 const Filters: React.FC<FiltersProps> = ({
@@ -41,6 +44,9 @@ const Filters: React.FC<FiltersProps> = ({
   isFetching,
   abortFetchData,
   phaseMessage,
+  stringFilters,
+  setStringFilter,
+  resetStringFilters,
 }) => {
   const { clusterName, topicName } = useAppParams<RouteParamsClusterTopic>();
 
@@ -103,6 +109,21 @@ const Filters: React.FC<FiltersProps> = ({
     }
     refreshData();
   };
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (!value) {
+      resetStringFilters();
+    }
+  };
+
+  useEffect(() => {
+    if (!search) {
+      resetStringFilters();
+    }
+  }, [search, resetStringFilters]);
+
+  const displayedStringFilters = search ? [...stringFilters, ''] : [];
 
   return (
     <FlexBox flexDirection="column" padding="0 16px">
@@ -185,8 +206,26 @@ const Filters: React.FC<FiltersProps> = ({
           </Button>
         </FlexBox>
 
-        <Search placeholder="Search" value={search} onChange={setSearch} />
+        <Search placeholder="Search" value={search} onChange={handleSearchChange} />
       </FlexBox>
+      {displayedStringFilters.length > 0 && (
+        <FlexBox
+          width="100%"
+          justifyContent="flex-end"
+          gap="8px"
+          flexWrap="wrap"
+          margin="8px 0 0"
+        >
+          {displayedStringFilters.map((stringFilter, index) => (
+            <Search
+              key={`refine-search-${index}`}
+              placeholder="Refine search"
+              value={stringFilter}
+              onChange={(value) => setStringFilter(index, value)}
+            />
+          ))}
+        </FlexBox>
+      )}
       <FlexBox
         gap="10px"
         alignItems="center"

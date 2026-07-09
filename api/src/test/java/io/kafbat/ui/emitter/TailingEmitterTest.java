@@ -111,7 +111,7 @@ class TailingEmitterTest extends AbstractIntegrationTest {
     return applicationContext.getBean(MessagesService.class)
         .loadMessages(cluster, topicName,
             new ConsumerPosition(PollingModeDTO.TAILING, topic, List.of(), null, null),
-            query,
+        List.of(query),
             null,
             0,
             StringSerde.NAME,

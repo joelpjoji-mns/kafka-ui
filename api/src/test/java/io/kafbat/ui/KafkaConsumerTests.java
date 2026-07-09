@@ -97,6 +97,71 @@ class KafkaConsumerTests extends AbstractIntegrationTest {
   }
 
   @Test
+  void shouldFilterMessagesByRepeatedStringFilterParams() {
+    var topicName = UUID.randomUUID().toString();
+    webTestClient.post()
+        .uri("/api/clusters/{clusterName}/topics", LOCAL)
+        .bodyValue(new TopicCreationDTO()
+            .name(topicName)
+            .partitions(1)
+            .replicationFactor(1)
+            .configs(Map.of())
+        )
+        .exchange()
+        .expectStatus()
+        .isOk();
+
+    try (KafkaTestProducer<String, String> producer = KafkaTestProducer.forKafka(kafka)) {
+      Flux.fromStream(
+          Stream.of("alpha beta", "alpha only", "beta only")
+              .map(value -> Mono.fromFuture(producer.send(topicName, value)))
+      ).blockLast();
+    } catch (Throwable e) {
+      log.error("Error on sending", e);
+      throw new RuntimeException(e);
+    }
+
+    List<TopicMessageEventDTO> singleFilterResponse = webTestClient.get()
+        .uri("/api/clusters/{clusterName}/topics/{topicName}/messages/v2?mode=EARLIEST&stringFilter=alpha",
+            LOCAL,
+            topicName)
+        .accept(TEXT_EVENT_STREAM)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBodyList(TopicMessageEventDTO.class)
+        .returnResult()
+        .getResponseBody();
+
+    assertThat(singleFilterResponse).isNotNull();
+    assertThat(singleFilterResponse.stream()
+        .filter(e -> e.getType().equals(TopicMessageEventDTO.TypeEnum.MESSAGE))
+        .map(e -> e.getMessage().getValue())
+        .toList())
+        .containsExactlyInAnyOrder("alpha beta", "alpha only");
+
+    List<TopicMessageEventDTO> repeatedFilterResponse = webTestClient.get()
+        .uri("/api/clusters/{clusterName}/topics/{topicName}/messages/v2?mode=EARLIEST"
+                + "&stringFilter=alpha&stringFilter=beta",
+            LOCAL,
+            topicName)
+        .accept(TEXT_EVENT_STREAM)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBodyList(TopicMessageEventDTO.class)
+        .returnResult()
+        .getResponseBody();
+
+    assertThat(repeatedFilterResponse).isNotNull();
+    assertThat(repeatedFilterResponse.stream()
+        .filter(e -> e.getType().equals(TopicMessageEventDTO.TypeEnum.MESSAGE))
+        .map(e -> e.getMessage().getValue())
+        .toList())
+        .containsExactly("alpha beta");
+  }
+
+  @Test
   void shouldIncreasePartitionsUpTo10() {
     var topicName = UUID.randomUUID().toString();
     webTestClient.post()

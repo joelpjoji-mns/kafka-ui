@@ -34,7 +34,6 @@ typeSpecs.each { spec ->
 
     def buildDir = project.layout.buildDirectory.get().asFile
     def outputDir = new File(buildDir, "tsp${File.separator}${spec}")
-    def tspPath = "tsp --output-dir=\"${outputDir}\" compile ."
 
     tasks.register("installDependencies_${spec}", NpmTask) {
         group = 'build'
@@ -47,7 +46,7 @@ typeSpecs.each { spec ->
         dependsOn "installDependencies_${spec}"
         npmCommand = ['exec']
         workingDir = project.layout.projectDirectory.dir(spec).asFile
-        args = ["--package=@typespec/compiler@${typeSpecVersion}", '-c', tspPath]
+        args = ["--package=@typespec/compiler@${typeSpecVersion}", '--', 'tsp', "--output-dir=${outputDir}", 'compile', '.']
     }
 
     tasks.register("cleanDependencies_${spec}", Delete) {

@@ -1,6 +1,7 @@
 package io.kafbat.ui.emitter;
 
 import static io.kafbat.ui.emitter.MessageFilters.celScriptFilter;
+import static io.kafbat.ui.emitter.MessageFilters.containsAllStringFilters;
 import static io.kafbat.ui.emitter.MessageFilters.containsStringFilter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -68,6 +69,34 @@ class MessageFiltersTest {
           filter.test(msg().key("aBc").value("AbC").headers(Map.of("abc", "value")))
       );
 
+    }
+
+    @Test
+    void returnsTrueOnlyWhenAllStringFiltersMatch() {
+      Predicate<TopicMessageDTO> multipleFilters = containsAllStringFilters(
+          List.of("key-term", "value-term", "header-name", "header-value")
+      );
+
+      assertTrue(
+          multipleFilters.test(msg()
+              .key("key-term")
+              .value("value-term")
+              .headers(Map.of("header-name", "header-value")))
+      );
+
+      assertFalse(
+          multipleFilters.test(msg()
+              .key("key-term")
+              .value("value-term")
+              .headers(Map.of("header-name", "other-value")))
+      );
+    }
+
+    @Test
+    void returnsNoopFilterWhenStringFiltersAreMissing() {
+      assertTrue(containsAllStringFilters(null).test(msg().key(null).value(null)));
+      assertTrue(containsAllStringFilters(List.of()).test(msg().key(null).value(null)));
+      assertTrue(containsAllStringFilters(List.of("")).test(msg().key(null).value(null)));
     }
 
   }
