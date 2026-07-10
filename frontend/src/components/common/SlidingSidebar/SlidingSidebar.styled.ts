@@ -7,6 +7,8 @@ export const Wrapper = styled.div<{ $open?: boolean }>(
   top: ${theme.layout.navBarHeight};
   bottom: 0;
   width: 37vw;
+  max-width: 100vw;
+  box-sizing: border-box;
   right: calc(${$open ? '0px' : theme.layout.rightSidebarWidth} * -1);
   box-shadow: -1px 0px 10px 0px rgba(0, 0, 0, 0.2);
   transition: right 0.3s linear;
@@ -18,6 +20,11 @@ export const Wrapper = styled.div<{ $open?: boolean }>(
     align-items: center;
     border-bottom: 1px solid ${theme.layout.stuffBorderColor};
     padding: 16px;
+  }
+
+  @media screen and (max-width: ${theme.breakpoints.M}px) {
+    width: 100vw;
+    right: ${$open ? '0' : '-100vw'};
   }
 `
 );
