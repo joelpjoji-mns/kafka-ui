@@ -2,7 +2,7 @@ import React, { PropsWithChildren } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Navigate } from 'react-router-dom';
 
-const ErrorComponent: React.FC<{ error: Error }> = ({ error }) => {
+const ErrorComponent: React.FC<{ error: unknown }> = ({ error }) => {
   const errorStatus = (error as unknown as Response)?.status
     ? (error as unknown as Response).status
     : '404';
