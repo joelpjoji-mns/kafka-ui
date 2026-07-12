@@ -1,6 +1,6 @@
 import 'react-datepicker/dist/react-datepicker.css';
 
-import { SerdeUsage, TopicMessageConsuming } from 'generated-sources';
+import { SerdeUsage, PollingMode, TopicMessageConsuming } from 'generated-sources';
 import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import MultiSelect from 'components/common/MultiSelect/MultiSelect.styled';
 import Select from 'components/common/Select/Select';
@@ -28,6 +28,8 @@ import {
 } from './utils';
 import FiltersSideBar from './FiltersSideBar';
 import FiltersMetrics from './FiltersMetrics';
+import TimeRangeSelector from './TimeRangeSelector';
+import PartitionCounts from './PartitionCounts';
 
 export interface FiltersProps {
   phaseMessage?: string;
@@ -37,6 +39,8 @@ export interface FiltersProps {
   stringFilters: string[];
   setStringFilter: (index: number, value: string) => void;
   resetStringFilters: () => void;
+  partitionCounts?: Record<number, number>;
+  totalMessages?: number;
 }
 
 const Filters: React.FC<FiltersProps> = ({
@@ -47,6 +51,8 @@ const Filters: React.FC<FiltersProps> = ({
   stringFilters,
   setStringFilter,
   resetStringFilters,
+  partitionCounts,
+  totalMessages,
 }) => {
   const { clusterName, topicName } = useAppParams<RouteParamsClusterTopic>();
 
@@ -55,6 +61,8 @@ const Filters: React.FC<FiltersProps> = ({
     setMode,
     date,
     setTimeStamp,
+    timestampTo,
+    setTimeRange,
     keySerde,
     setKeySerde,
     valueSerde,
@@ -204,10 +212,28 @@ const Filters: React.FC<FiltersProps> = ({
           >
             Refresh
           </Button>
+          <TimeRangeSelector
+            start={mode === PollingMode.FROM_TIMESTAMP ? date : null}
+            end={
+              mode === PollingMode.TO_TIMESTAMP
+                ? date
+                : mode === PollingMode.FROM_TIMESTAMP
+                ? timestampTo
+                : null
+            }
+            onApply={setTimeRange}
+            disabled={isFetching}
+          />
         </FlexBox>
 
         <Search placeholder="Search" value={search} onChange={handleSearchChange} />
       </FlexBox>
+      {partitionCounts && typeof totalMessages === 'number' && (
+        <PartitionCounts
+          partitionCounts={partitionCounts}
+          total={totalMessages}
+        />
+      )}
       {displayedStringFilters.length > 0 && (
         <FlexBox
           width="100%"

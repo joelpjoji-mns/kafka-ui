@@ -149,6 +149,11 @@ export const useTopicMessages = ({
       searchParams.get(MessagesFilterKeys.mode) || ''
     );
 
+    const timestampToRaw = searchParams.get(MessagesFilterKeys.timestampTo);
+    const timestampToMs = timestampToRaw ? parseFloat(timestampToRaw) : null;
+    const hasEndCap =
+      timestampToMs !== null && Number.isFinite(timestampToMs);
+
     const fetchData = async () => {
       setIsFetching(true);
 
@@ -243,6 +248,15 @@ export const useTopicMessages = ({
           switch (parsedData.type) {
             case TopicMessageEventTypeEnum.MESSAGE:
               if (message) {
+                // Client-side upper cap: if a range end (timestampTo) is set
+                // and this message is after it, drop it and abort the stream.
+                if (hasEndCap && message.timestamp) {
+                  const msgTs = new Date(message.timestamp).getTime();
+                  if (Number.isFinite(msgTs) && msgTs > (timestampToMs as number)) {
+                    abortFetchData();
+                    break;
+                  }
+                }
                 setMessages((prevMessages) => {
                   if (mode === PollingMode.TAILING) {
                     return [message, ...prevMessages];

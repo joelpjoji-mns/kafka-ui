@@ -78,6 +78,8 @@ public class MessagesService {
   private static final int DEFAULT_PAGE_SIZE = 100;
   private static final int DEFAULT_UPLOAD_MESSAGE_LIMIT = 1_000;
   private static final int MAX_UPLOAD_MESSAGE_LIMIT = 10_000;
+  private static final int MAX_PRODUCER_REQUEST_BYTES = Integer.MAX_VALUE;
+  private static final long MAX_PRODUCER_BUFFER_BYTES = Integer.MAX_VALUE;
 
   // limiting UI messages rate to 20/sec in tailing mode
   private static final int TAILING_UI_MESSAGE_THROTTLE_RATE = 20;
@@ -355,6 +357,8 @@ public class MessagesService {
     KafkaClientSslPropertiesUtil.addKafkaSslProperties(cluster.getSsl(), properties);
     properties.putAll(cluster.getProperties());
     properties.putAll(cluster.getProducerProperties());
+    properties.putIfAbsent(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, MAX_PRODUCER_REQUEST_BYTES);
+    properties.putIfAbsent(ProducerConfig.BUFFER_MEMORY_CONFIG, MAX_PRODUCER_BUFFER_BYTES);
     properties.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, cluster.getBootstrapServers());
     properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
     properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);

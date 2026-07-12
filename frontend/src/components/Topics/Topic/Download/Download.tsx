@@ -96,7 +96,7 @@ const Download: React.FC = () => {
   const [offset, setOffset] = useState('0');
   const [fromTime, setFromTime] = useState('');
   const [toTime, setToTime] = useState('');
-  const [format, setFormat] = useState('TEXT');
+  const [format, setFormat] = useState('VALUE_ONLY');
   const [search, setSearch] = useState('');
   const [smartFilterId, setSmartFilterId] = useState('');
   const [keySerde, setKeySerde] = useState<string | undefined>();

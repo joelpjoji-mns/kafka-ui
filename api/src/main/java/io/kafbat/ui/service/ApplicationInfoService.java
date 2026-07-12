@@ -49,7 +49,7 @@ public class ApplicationInfoService {
                                 ApplicationContext applicationContext,
                                 @Autowired(required = false) BuildProperties buildProperties,
                                 @Autowired(required = false) GitProperties gitProperties,
-                                @Value("${" + GITHUB_RELEASE_INFO_ENABLED + ":true}") boolean githubInfoEnabled,
+                                @Value("${" + GITHUB_RELEASE_INFO_ENABLED + ":false}") boolean githubInfoEnabled,
                                 @Value("${" + GITHUB_RELEASE_INFO_TIMEOUT + ":10}") int githubApiMaxWaitTime) {
     this.applicationContext = applicationContext;
     this.dynamicConfigOperations = dynamicConfigOperations;

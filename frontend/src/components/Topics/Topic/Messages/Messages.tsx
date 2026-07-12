@@ -60,6 +60,19 @@ const Messages: React.FC = () => {
       stringFilters,
     });
 
+  const { partitionCounts, totalMessages } = React.useMemo(() => {
+    const counts: Record<number, number> = {};
+    (messages || []).forEach((msg) => {
+      if (typeof msg?.partition === 'number') {
+        counts[msg.partition] = (counts[msg.partition] || 0) + 1;
+      }
+    });
+    return {
+      partitionCounts: counts,
+      totalMessages: (messages || []).length,
+    };
+  }, [messages]);
+
   return (
     <>
       <Filters
@@ -70,6 +83,8 @@ const Messages: React.FC = () => {
         stringFilters={stringFilters}
         setStringFilter={setStringFilter}
         resetStringFilters={resetStringFilters}
+        partitionCounts={partitionCounts}
+        totalMessages={totalMessages}
       />
       <MessagesTable messages={messages} isFetching={isFetching} />
     </>

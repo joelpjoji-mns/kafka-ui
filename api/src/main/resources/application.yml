@@ -1,6 +1,13 @@
 auth:
   type: DISABLED
 
+spring:
+  codec:
+    max-in-memory-size: -1
+  webflux:
+    multipart:
+      max-in-memory-size: -1
+
 management:
   endpoint:
     info:

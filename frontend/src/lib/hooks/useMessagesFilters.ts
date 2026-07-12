@@ -100,6 +100,11 @@ export function useMessagesFilters(topicName: string) {
 
   const date = dateParams ? new Date(parseFloat(dateParams)) : null;
 
+  const timestampToParam = searchParams.get(MessagesFilterKeys.timestampTo);
+  const timestampTo = timestampToParam
+    ? new Date(parseFloat(timestampToParam))
+    : null;
+
   const keySerde = searchParams.get(MessagesFilterKeys.keySerde) || undefined;
   const valueSerde =
     searchParams.get(MessagesFilterKeys.valueSerde) || undefined;
@@ -125,10 +130,12 @@ export function useMessagesFilters(topicName: string) {
     setSearchParams((params) => {
       removeMessagesFiltersField(MessagesFilterKeys.offset);
       removeMessagesFiltersField(MessagesFilterKeys.timestamp);
+      removeMessagesFiltersField(MessagesFilterKeys.timestampTo);
       setMessagesFiltersField(MessagesFilterKeys.mode, newMode);
       params.set(MessagesFilterKeys.mode, newMode);
       params.delete(MessagesFilterKeys.offset);
       params.delete(MessagesFilterKeys.timestamp);
+      params.delete(MessagesFilterKeys.timestampTo);
       return params;
     });
   };
@@ -149,6 +156,83 @@ export function useMessagesFilters(topicName: string) {
         newDate.getTime().toString()
       );
       params.set(MessagesFilterKeys.timestamp, newDate.getTime().toString());
+      return params;
+    });
+  };
+
+  /**
+   * @description Sets a time range on the Messages tab.
+   * - both dates set → mode=FROM_TIMESTAMP with `timestamp=start` and a
+   *   client-side upper cap in `timestampTo=end`
+   * - only start set → mode=FROM_TIMESTAMP
+   * - only end set   → mode=TO_TIMESTAMP with `timestamp=end`
+   * - both null      → clears range and resets to LATEST
+   */
+  const setTimeRange = (start: Date | null, end: Date | null) => {
+    setSearchParams((params) => {
+      removeMessagesFiltersField(MessagesFilterKeys.offset);
+      params.delete(MessagesFilterKeys.offset);
+      params.delete(MessagesFilterKeys.timestamp);
+      params.delete(MessagesFilterKeys.timestampTo);
+      removeMessagesFiltersField(MessagesFilterKeys.timestamp);
+      removeMessagesFiltersField(MessagesFilterKeys.timestampTo);
+
+      if (!start && !end) {
+        setMessagesFiltersField(MessagesFilterKeys.mode, PollingMode.LATEST);
+        params.set(MessagesFilterKeys.mode, PollingMode.LATEST);
+        return params;
+      }
+
+      if (start && !end) {
+        setMessagesFiltersField(
+          MessagesFilterKeys.mode,
+          PollingMode.FROM_TIMESTAMP
+        );
+        params.set(MessagesFilterKeys.mode, PollingMode.FROM_TIMESTAMP);
+        setMessagesFiltersField(
+          MessagesFilterKeys.timestamp,
+          start.getTime().toString()
+        );
+        params.set(MessagesFilterKeys.timestamp, start.getTime().toString());
+        return params;
+      }
+
+      if (!start && end) {
+        setMessagesFiltersField(
+          MessagesFilterKeys.mode,
+          PollingMode.TO_TIMESTAMP
+        );
+        params.set(MessagesFilterKeys.mode, PollingMode.TO_TIMESTAMP);
+        setMessagesFiltersField(
+          MessagesFilterKeys.timestamp,
+          end.getTime().toString()
+        );
+        params.set(MessagesFilterKeys.timestamp, end.getTime().toString());
+        return params;
+      }
+
+      // both start and end set
+      setMessagesFiltersField(
+        MessagesFilterKeys.mode,
+        PollingMode.FROM_TIMESTAMP
+      );
+      params.set(MessagesFilterKeys.mode, PollingMode.FROM_TIMESTAMP);
+      setMessagesFiltersField(
+        MessagesFilterKeys.timestamp,
+        (start as Date).getTime().toString()
+      );
+      params.set(
+        MessagesFilterKeys.timestamp,
+        (start as Date).getTime().toString()
+      );
+      setMessagesFiltersField(
+        MessagesFilterKeys.timestampTo,
+        (end as Date).getTime().toString()
+      );
+      params.set(
+        MessagesFilterKeys.timestampTo,
+        (end as Date).getTime().toString()
+      );
       return params;
     });
   };
@@ -253,6 +337,8 @@ export function useMessagesFilters(topicName: string) {
     setMode,
     date,
     setTimeStamp,
+    timestampTo,
+    setTimeRange,
     keySerde,
     setKeySerde,
     valueSerde,

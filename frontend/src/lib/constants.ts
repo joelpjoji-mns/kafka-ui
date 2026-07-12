@@ -60,8 +60,6 @@ export const PER_PAGE = 25;
 export const MESSAGES_PER_PAGE = '100';
 
 export const GIT_REPO_LINK = 'https://github.com/kafbat/kafka-ui';
-export const GIT_REPO_LATEST_RELEASE_LINK =
-  'https://api.github.com/repos/kafbat/kafka-ui/releases/latest';
 
 export const LOCAL_STORAGE_KEY_PREFIX = 'kafbat-ui';
 
@@ -140,6 +138,7 @@ export const CONSUMER_GROUP_STATE_TOOLTIPS: Record<ConsumerGroupState, string> =
 export const MessagesFilterKeys = {
   mode: 'mode',
   timestamp: 'timestamp',
+  timestampTo: 'timestampTo',
   keySerde: 'keySerde',
   valueSerde: 'valueSerde',
   limit: 'limit',

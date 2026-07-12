@@ -250,7 +250,7 @@ class AvroJsonSchemaConverterTest {
         " {"
             + "     \"type\": \"record\","
             + "     \"name\": \"Message\","
-            + "     \"namespace\": \"com.provectus.kafka\","
+          + "     \"namespace\": \"io.kafbat.test\","
             + "     \"fields\": ["
             + "                     {"
             + "                         \"name\": \"enum_nullable_union\","
@@ -280,7 +280,7 @@ class AvroJsonSchemaConverterTest {
             + "]"
             + "}},"
             + "\"definitions\":{"
-            + "\"com.provectus.kafka.Message\":{\"$ref\":\"#\"}"
+            + "\"io.kafbat.test.Message\":{\"$ref\":\"#\"}"
             + "}}";
 
     convertAndCompare(expectedJsonSchema, avroSchema);
