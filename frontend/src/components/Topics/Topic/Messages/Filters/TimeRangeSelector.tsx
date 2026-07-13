@@ -3,8 +3,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import React, { useMemo } from 'react';
 import DatePicker from 'react-datepicker';
 import styled from 'styled-components';
-import FlexBox from 'components/common/FlexBox/FlexBox';
-import { Button } from 'components/common/Button/Button';
+import Select, { SelectOption } from 'components/common/Select/Select';
 
 export interface TimeRangeSelectorProps {
   start: Date | null;
@@ -15,38 +14,76 @@ export interface TimeRangeSelectorProps {
 
 interface Preset {
   label: string;
+  value: string;
   ms: number;
 }
 
+const CUSTOM_RANGE = 'custom';
+
 const PRESETS: Preset[] = [
-  { label: 'Last 1h', ms: 60 * 60 * 1000 },
-  { label: 'Last 1 day', ms: 24 * 60 * 60 * 1000 },
-  { label: 'Last 7 days', ms: 7 * 24 * 60 * 60 * 1000 },
-  { label: 'Last 1 month', ms: 30 * 24 * 60 * 60 * 1000 },
+  { label: 'Last 1h', value: 'last-1h', ms: 60 * 60 * 1000 },
+  { label: 'Last 1 day', value: 'last-1-day', ms: 24 * 60 * 60 * 1000 },
+  { label: 'Last 7 days', value: 'last-7-days', ms: 7 * 24 * 60 * 60 * 1000 },
+  { label: 'Last 1 month', value: 'last-1-month', ms: 30 * 24 * 60 * 60 * 1000 },
 ];
 
-const RangeWrapper = styled(FlexBox)`
+const PRESET_OPTIONS: SelectOption<string>[] = [
+  { label: 'Custom', value: CUSTOM_RANGE },
+  ...PRESETS.map(({ label, value }) => ({ label, value })),
+];
+
+const RangeRoot = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: wrap;
+
+  & > div:first-child > ul {
+    border-left: none;
+    border-radius: 0;
+  }
+`;
+
+const RangeFields = styled.div`
+  display: flex;
+  align-items: center;
+  height: 32px;
   border: 1px solid ${({ theme }) => theme.select.borderColor.normal};
+  border-left: none;
   border-radius: 4px;
-  padding: 2px 6px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
   background-color: ${({ theme }) => theme.input.backgroundColor.normal};
+  overflow: hidden;
+
+  .react-datepicker-wrapper {
+    width: 122px;
+  }
 `;
 
 const RangeLabel = styled.span`
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
   font-size: 12px;
   color: ${({ theme }) => theme.metrics.filters.color.normal};
-  padding: 0 4px;
+  padding: 0 6px;
+  background-color: ${({ theme }) => theme.layout.stuffColor};
+
+  & + .react-datepicker-wrapper {
+    border-right: 1px solid ${({ theme }) => theme.select.borderColor.normal};
+  }
 `;
 
 const RangeDate = styled(DatePicker)`
-  height: 26px;
+  height: 30px;
   border: none;
   outline: none;
   background-color: transparent;
   color: ${({ theme }) => theme.input.color.normal};
-  font-size: 13px;
-  width: 170px;
-  padding: 0 4px;
+  font-size: 12px;
+  width: 122px;
+  padding: 0 6px;
 
   &::placeholder {
     color: ${({ theme }) => theme.input.color.normal};
@@ -55,20 +92,23 @@ const RangeDate = styled(DatePicker)`
 `;
 
 const TimezoneBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  align-self: stretch;
   font-size: 11px;
   color: ${({ theme }) => theme.metrics.filters.color.normal};
-  opacity: 0.85;
-  padding: 0 6px;
+  padding: 0 8px;
   white-space: nowrap;
+  background-color: ${({ theme }) => theme.layout.stuffColor};
 `;
 
-const PresetButton = styled.button<{ $active?: boolean }>`
-  height: 26px;
+const ClearButton = styled.button`
+  height: 32px;
+  margin-left: 6px;
   padding: 0 8px;
   border: 1px solid ${({ theme }) => theme.select.borderColor.normal};
   border-radius: 4px;
-  background-color: ${({ $active, theme }) =>
-    $active ? theme.layout.stuffColor : theme.input.backgroundColor.normal};
+  background-color: transparent;
   color: ${({ theme }) => theme.input.color.normal};
   font-size: 12px;
   cursor: pointer;
@@ -81,10 +121,6 @@ const PresetButton = styled.button<{ $active?: boolean }>`
     opacity: 0.5;
     cursor: not-allowed;
   }
-`;
-
-const ClearButton = styled(Button)`
-  height: 26px;
 `;
 
 const detectTimezone = (): { tz: string; offset: string } => {
@@ -111,20 +147,21 @@ const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
 }) => {
   const { tz, offset } = useMemo(detectTimezone, []);
 
-  const activePresetLabel = useMemo(() => {
-    if (!start || !end) return null;
+  const activePresetValue = useMemo(() => {
+    if (!start || !end) return CUSTOM_RANGE;
     const diff = end.getTime() - start.getTime();
     const now = Date.now();
-    // consider a preset active only if end is roughly "now"
     const endIsNow = Math.abs(now - end.getTime()) < 60 * 1000;
-    if (!endIsNow) return null;
+    if (!endIsNow) return CUSTOM_RANGE;
     const match = PRESETS.find((p) => Math.abs(p.ms - diff) < 1000);
-    return match?.label ?? null;
+    return match?.value ?? CUSTOM_RANGE;
   }, [start, end]);
 
-  const applyPreset = (ms: number) => {
+  const applyPreset = (value: string) => {
+    const preset = PRESETS.find((p) => p.value === value);
+    if (!preset) return;
     const now = new Date();
-    const from = new Date(now.getTime() - ms);
+    const from = new Date(now.getTime() - preset.ms);
     onApply(from, now);
   };
 
@@ -132,30 +169,24 @@ const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
   const setEnd = (value: Date | null) => onApply(start, value);
 
   return (
-    <FlexBox gap="6px" alignItems="center" flexWrap="wrap">
-      {PRESETS.map((preset) => (
-        <PresetButton
-          key={preset.label}
-          type="button"
-          disabled={disabled}
-          $active={activePresetLabel === preset.label}
-          onClick={() => applyPreset(preset.ms)}
-          data-testid={`time-range-preset-${preset.label
-            .toLowerCase()
-            .replace(/\s+/g, '-')}`}
-          title={`Show messages from the ${preset.label.toLowerCase()}`}
-        >
-          {preset.label}
-        </PresetButton>
-      ))}
-      <RangeWrapper gap="2px" alignItems="center">
+    <RangeRoot>
+      <Select<string>
+        data-testid="time-range-preset-select"
+        selectSize="M"
+        minWidth="108px"
+        options={PRESET_OPTIONS}
+        value={activePresetValue}
+        disabled={disabled}
+        onChange={applyPreset}
+      />
+      <RangeFields>
         <RangeLabel>From</RangeLabel>
         <RangeDate
           selected={start}
           onChange={setStart}
           showTimeInput
           timeInputLabel="Time:"
-          dateFormat="MMM d, yyyy HH:mm"
+          dateFormat="MMM d HH:mm"
           placeholderText="Start"
           disabled={disabled}
           isClearable
@@ -166,26 +197,25 @@ const TimeRangeSelector: React.FC<TimeRangeSelectorProps> = ({
           onChange={setEnd}
           showTimeInput
           timeInputLabel="Time:"
-          dateFormat="MMM d, yyyy HH:mm"
+          dateFormat="MMM d HH:mm"
           placeholderText="End"
           disabled={disabled}
           isClearable
         />
         <TimezoneBadge title={`Application timezone: ${tz} (${offset})`}>
-          {tz} · {offset}
+          {offset}
         </TimezoneBadge>
-      </RangeWrapper>
+      </RangeFields>
       {(start || end) && (
         <ClearButton
           type="button"
-          buttonType="secondary"
-          buttonSize="S"
+          aria-label="Clear time range"
           onClick={() => onApply(null, null)}
         >
-          Clear range
+          Clear
         </ClearButton>
       )}
-    </FlexBox>
+    </RangeRoot>
   );
 };
 

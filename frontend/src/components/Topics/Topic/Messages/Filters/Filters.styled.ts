@@ -6,7 +6,7 @@ import EditIcon from 'components/common/Icons/EditIcon';
 import closeIcon from 'components/common/Icons/CloseIcon';
 import { PollingMode } from 'generated-sources';
 
-import { isModeOptionWithInput } from './utils';
+import { isModeOptionWithInput, isTimeRangeMode, SeekModeValue } from './utils';
 
 interface SavedFilterProps {
   selected: boolean;
@@ -327,11 +327,17 @@ export const MessageLoadingSpinner = styled.div<MessageLoadingSpinnerProps>`
 `;
 
 // styled component lib bug it does not pick up the generic
-export const FilterModeTypeSelect = styled(Select<PollingMode>)`
+export const FilterModeTypeSelect = styled(Select<SeekModeValue>)`
   border-top-right-radius: ${(props) =>
-    !props.value || !isModeOptionWithInput(props.value) ? '4px' : '0'};
+    !props.value ||
+    (!isTimeRangeMode(props.value) && !isModeOptionWithInput(props.value))
+      ? '4px'
+      : '0'};
   border-bottom-right-radius: ${(props) =>
-    !props.value || !isModeOptionWithInput(props.value) ? '4px' : '0'};
+    !props.value ||
+    (!isTimeRangeMode(props.value) && !isModeOptionWithInput(props.value))
+      ? '4px'
+      : '0'};
   user-select: none;
 `;
 

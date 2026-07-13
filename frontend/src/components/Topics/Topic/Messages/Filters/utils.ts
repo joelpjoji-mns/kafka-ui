@@ -2,6 +2,14 @@ import { Partition, PollingMode, SeekType } from 'generated-sources';
 import { Option } from 'react-multi-select-component';
 import compact from 'lib/functions/compact';
 
+export const TIME_RANGE_MODE = 'TIME_RANGE' as const;
+
+export type SeekModeValue = PollingMode | typeof TIME_RANGE_MODE;
+
+export function isTimeRangeMode(value?: SeekModeValue) {
+  return value === TIME_RANGE_MODE;
+}
+
 export function isModeOptionWithInput(value: PollingMode) {
   return (
     value !== PollingMode.TAILING &&

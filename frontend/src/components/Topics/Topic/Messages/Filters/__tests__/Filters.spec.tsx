@@ -236,6 +236,18 @@ describe('Filters component', () => {
     it('timestamp input since time', async () => {
       await selectDropdownAndCheckInput('To time', 'Select timestamp');
     });
+
+    it('shows compact range controls from the time range mode', async () => {
+      const seekTypeSelect = getSeekTypeSelect();
+
+      await userEvent.click(seekTypeSelect);
+      await userEvent.click(screen.getByRole('option', { name: 'Time range' }));
+
+      await waitFor(() => {
+        expect(seekTypeSelect).toHaveTextContent('Time range');
+        expect(screen.getByTestId('time-range-preset-select')).toBeInTheDocument();
+      });
+    });
   });
 
   describe('change from and to offset filter', () => {
@@ -326,6 +338,22 @@ describe('Filters component', () => {
         // DatePicker uses format "MMM d, yyyy HH:mm" - verify timestamp input has a value
         const timestampInput = screen.getByPlaceholderText('Select timestamp');
         expect(timestampInput).not.toHaveValue('');
+      });
+
+      it('should show time range mode when start and end timestamps are in the url', () => {
+        const start = new Date(1707940800000);
+        const end = new Date(1708027200000);
+        renderComponent(
+          {},
+          {
+            [MessagesFilterKeys.mode]: PollingMode.FROM_TIMESTAMP,
+            [MessagesFilterKeys.timestamp]: start.getTime().toString(),
+            [MessagesFilterKeys.timestampTo]: end.getTime().toString(),
+          }
+        );
+
+        expect(getSeekTypeSelect()).toHaveTextContent('Time range');
+        expect(screen.getByTestId('time-range-preset-select')).toBeInTheDocument();
       });
     });
 

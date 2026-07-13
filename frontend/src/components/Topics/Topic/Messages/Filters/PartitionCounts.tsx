@@ -1,23 +1,27 @@
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import FlexBox from 'components/common/FlexBox/FlexBox';
 
 export interface PartitionCountsProps {
   partitionCounts: Record<number, number>;
   total: number;
 }
 
-const CountsBar = styled(FlexBox)`
-  border-top: 1px dashed ${({ theme }) => theme.select.borderColor.normal};
-  padding: 8px 0 0 0;
+const CountsBar = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px 0 0;
+  color: ${({ theme }) => theme.metrics.filters.color.normal};
+  font-size: 12px;
 `;
 
 const TotalPill = styled.span`
   display: inline-flex;
   align-items: center;
-  height: 22px;
-  padding: 0 10px;
-  border-radius: 11px;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 4px;
   background-color: ${({ theme }) => theme.layout.stuffColor};
   color: ${({ theme }) => theme.default.color.normal};
   font-size: 12px;
@@ -27,9 +31,9 @@ const TotalPill = styled.span`
 const PartitionPill = styled.span`
   display: inline-flex;
   align-items: center;
-  height: 22px;
-  padding: 0 8px;
-  border-radius: 11px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
   border: 1px solid ${({ theme }) => theme.select.borderColor.normal};
   color: ${({ theme }) => theme.default.color.normal};
   font-size: 12px;
@@ -44,7 +48,7 @@ const PartitionPill = styled.span`
 const Label = styled.span`
   font-size: 12px;
   color: ${({ theme }) => theme.metrics.filters.color.normal};
-  margin-right: 4px;
+  margin-right: 2px;
 `;
 
 const PartitionCounts: React.FC<PartitionCountsProps> = ({
@@ -62,14 +66,9 @@ const PartitionCounts: React.FC<PartitionCountsProps> = ({
   if (total === 0) return null;
 
   return (
-    <CountsBar
-      gap="8px"
-      alignItems="center"
-      flexWrap="wrap"
-      padding="8px 0 0"
-    >
-      <Label>Loaded messages:</Label>
-      <TotalPill data-testid="partition-counts-total">Total {total}</TotalPill>
+    <CountsBar>
+      <Label>Loaded</Label>
+      <TotalPill data-testid="partition-counts-total">{total}</TotalPill>
       {entries.map(({ partition, count }) => (
         <PartitionPill
           key={partition}

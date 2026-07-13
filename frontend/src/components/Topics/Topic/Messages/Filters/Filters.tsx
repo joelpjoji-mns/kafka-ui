@@ -3,7 +3,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { SerdeUsage, PollingMode, TopicMessageConsuming } from 'generated-sources';
 import React, { ChangeEvent, useEffect, useMemo, useState } from 'react';
 import MultiSelect from 'components/common/MultiSelect/MultiSelect.styled';
-import Select from 'components/common/Select/Select';
+import Select, { SelectOption } from 'components/common/Select/Select';
 import { Button } from 'components/common/Button/Button';
 import Search from 'components/common/Search/Search';
 import PlusIcon from 'components/common/Icons/PlusIcon';
@@ -25,6 +25,8 @@ import {
   isLiveMode,
   isModeOffsetSelector,
   isModeOptionWithInput,
+  SeekModeValue,
+  TIME_RANGE_MODE,
 } from './utils';
 import FiltersSideBar from './FiltersSideBar';
 import FiltersMetrics from './FiltersMetrics';
@@ -42,6 +44,13 @@ export interface FiltersProps {
   partitionCounts?: Record<number, number>;
   totalMessages?: number;
 }
+
+const DEFAULT_TIME_RANGE_MS = 24 * 60 * 60 * 1000;
+
+const SeekModeOptions: SelectOption<SeekModeValue>[] = [
+  ...ModeOptions,
+  { value: TIME_RANGE_MODE, label: 'Time range' },
+];
 
 const Filters: React.FC<FiltersProps> = ({
   consumptionStats,
@@ -118,6 +127,22 @@ const Filters: React.FC<FiltersProps> = ({
     refreshData();
   };
 
+  const selectedSeekMode: SeekModeValue =
+    mode === PollingMode.FROM_TIMESTAMP && timestampTo
+      ? TIME_RANGE_MODE
+      : mode;
+
+  const handleModeChange = (newMode: SeekModeValue) => {
+    if (newMode === TIME_RANGE_MODE) {
+      const end = timestampTo || new Date();
+      const start = date || new Date(end.getTime() - DEFAULT_TIME_RANGE_MS);
+      setTimeRange(start, end);
+      return;
+    }
+
+    setMode(newMode);
+  };
+
   const handleSearchChange = (value: string) => {
     setSearch(value);
     if (!value) {
@@ -140,14 +165,22 @@ const Filters: React.FC<FiltersProps> = ({
           <S.FilterModeTypeSelectorWrapper>
             <S.FilterModeTypeSelect
               id="selectSeekType"
-              onChange={setMode}
-              value={mode}
+              onChange={handleModeChange}
+              value={selectedSeekMode}
               selectSize="M"
               minWidth="100px"
-              options={ModeOptions}
+              options={SeekModeOptions}
             />
 
-            {isModeOptionWithInput(mode) &&
+            {selectedSeekMode === TIME_RANGE_MODE ? (
+              <TimeRangeSelector
+                start={date}
+                end={timestampTo}
+                onApply={setTimeRange}
+                disabled={isFetching}
+              />
+            ) : (
+              isModeOptionWithInput(mode) &&
               (isModeOffsetSelector(mode) ? (
                 <S.OffsetSelector
                   id="offset"
@@ -170,7 +203,8 @@ const Filters: React.FC<FiltersProps> = ({
                   dateFormat="MMM d, yyyy"
                   placeholderText="Select timestamp"
                 />
-              ))}
+              ))
+            )}
           </S.FilterModeTypeSelectorWrapper>
           <MultiSelect
             disabled={isLoading}
@@ -212,18 +246,6 @@ const Filters: React.FC<FiltersProps> = ({
           >
             Refresh
           </Button>
-          <TimeRangeSelector
-            start={mode === PollingMode.FROM_TIMESTAMP ? date : null}
-            end={
-              mode === PollingMode.TO_TIMESTAMP
-                ? date
-                : mode === PollingMode.FROM_TIMESTAMP
-                ? timestampTo
-                : null
-            }
-            onApply={setTimeRange}
-            disabled={isFetching}
-          />
         </FlexBox>
 
         <Search placeholder="Search" value={search} onChange={handleSearchChange} />
