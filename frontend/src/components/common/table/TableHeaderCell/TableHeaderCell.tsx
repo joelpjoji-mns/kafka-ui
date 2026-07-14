@@ -10,6 +10,9 @@ export interface TableHeaderCellProps {
   sortOrder?: SortOrder;
   orderValue?: string;
   handleOrderBy?: (orderBy: string | null) => void;
+  onResizeStart?: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onResizeBy?: (delta: number) => void;
+  onResizeReset?: () => void;
 }
 
 const TableHeaderCell: React.FC<PropsWithChildren<TableHeaderCellProps>> = (
@@ -23,6 +26,9 @@ const TableHeaderCell: React.FC<PropsWithChildren<TableHeaderCellProps>> = (
     sortOrder,
     orderValue,
     handleOrderBy,
+    onResizeStart,
+    onResizeBy,
+    onResizeReset,
     ...restProps
   } = props;
 
@@ -39,6 +45,29 @@ const TableHeaderCell: React.FC<PropsWithChildren<TableHeaderCellProps>> = (
       handleOrderBy &&
       handleOrderBy(orderValue)
     );
+  };
+  const handleResizeKeyDown = (
+    event: React.KeyboardEvent<HTMLButtonElement>
+  ) => {
+    if (event.key === 'Home') {
+      event.preventDefault();
+      event.stopPropagation();
+      onResizeReset?.();
+      return;
+    }
+
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const step = event.shiftKey ? 40 : 16;
+    onResizeBy?.(event.key === 'ArrowLeft' ? -step : step);
+  };
+  const handleResizePointerDown = (
+    event: React.PointerEvent<HTMLButtonElement>
+  ) => {
+    event.stopPropagation();
+    onResizeStart?.(event);
   };
   const orderableProps = isOrderable && {
     isOrderable,
@@ -63,6 +92,19 @@ const TableHeaderCell: React.FC<PropsWithChildren<TableHeaderCellProps>> = (
         >
           {previewText}
         </S.Preview>
+      )}
+      {onResizeStart && (
+        <S.ColumnResizer
+          aria-label={`Resize ${title || 'column'} column`}
+          type="button"
+          onClick={(event) => event.stopPropagation()}
+          onDoubleClick={(event) => {
+            event.stopPropagation();
+            onResizeReset?.();
+          }}
+          onKeyDown={handleResizeKeyDown}
+          onPointerDown={handleResizePointerDown}
+        />
       )}
     </S.TableHeaderCell>
   );
