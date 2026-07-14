@@ -106,8 +106,38 @@ export const Preview = styled.span`
 `;
 
 export const TableHeaderCell = styled.th`
+  position: relative;
   padding: 4px 0 4px 24px;
   border-bottom-width: 1px;
   vertical-align: middle;
   text-align: left;
+`;
+
+export const ColumnResizer = styled.button`
+  position: absolute;
+  top: 0;
+  right: -4px;
+  z-index: 1;
+  width: 8px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+
+  &::after {
+    position: absolute;
+    top: 25%;
+    right: 3px;
+    width: 2px;
+    height: 50%;
+    background: transparent;
+    content: '';
+  }
+
+  &:hover::after,
+  &:focus-visible::after {
+    background: ${({ theme }) => theme.table.th.previewColor.normal};
+  }
 `;
