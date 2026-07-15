@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { render } from 'lib/testHelpers';
 import TableHeaderCell, {
   TableHeaderCellProps,
@@ -45,6 +45,29 @@ describe('TableHeaderCell', () => {
     expect(
       within(getColumnHeader()).getByText(testPreviewText)
     ).toBeInTheDocument();
+  });
+
+  it('renders a resize handle and forwards resize interactions', () => {
+    const onResizeStart = jest.fn();
+    const onResizeBy = jest.fn();
+    const onResizeReset = jest.fn();
+    setupComponent({
+      title: testTitle,
+      onResizeStart,
+      onResizeBy,
+      onResizeReset,
+    });
+
+    const resizeHandle = within(getColumnHeader()).getByRole('button', {
+      name: `Resize ${testTitle} column`,
+    });
+    fireEvent.pointerDown(resizeHandle, { clientX: 20 });
+    fireEvent.keyDown(resizeHandle, { key: 'ArrowRight' });
+    fireEvent.doubleClick(resizeHandle);
+
+    expect(onResizeStart).toHaveBeenCalledTimes(1);
+    expect(onResizeBy).toHaveBeenCalledWith(16);
+    expect(onResizeReset).toHaveBeenCalledTimes(1);
   });
 
   it('renders with orderable props', () => {
