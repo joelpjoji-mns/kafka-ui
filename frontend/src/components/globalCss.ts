@@ -7,7 +7,7 @@ export default createGlobalStyle(
       font-size: 14px;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
-      background-color: ${theme.default.backgroundColor};
+      background: ${theme.effects.appBackground};
       overflow-x: hidden;
       overflow-y: scroll;
       text-rendering: optimizeLegibility;
@@ -18,8 +18,10 @@ export default createGlobalStyle(
     #root,
     body {
       width: 100%;
+      min-height: 100%;
       position: relative;
       margin: 0;
+      background: ${theme.effects.appBackground};
       font-family: 'Inter', sans-serif;
       font-size: 14px;
       font-weight: 400;
