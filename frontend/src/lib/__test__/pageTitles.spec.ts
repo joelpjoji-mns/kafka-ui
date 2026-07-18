@@ -15,7 +15,7 @@ import {
 describe('pageTitles', () => {
   it('builds titles from non-empty parts', () => {
     expect(buildPageTitle('Messages', '', 'orders')).toBe(
-      'Messages | orders | Kafbat UI'
+      'Messages | orders | Custom Kafka UI'
     );
   });
 
@@ -26,7 +26,7 @@ describe('pageTitles', () => {
         'local',
         'orders'
       )
-    ).toBe('Messages | orders | local | Kafbat UI');
+    ).toBe('Messages | orders | local | Custom Kafka UI');
   });
 
   it('maps connector detail routes to section titles', () => {
@@ -37,18 +37,18 @@ describe('pageTitles', () => {
         'main-connect',
         'sink-a'
       )
-    ).toBe('Config | sink-a | local | Kafbat UI');
+    ).toBe('Config | sink-a | local | Custom Kafka UI');
   });
 
   it('maps kafka connect list routes to page titles', () => {
     expect(
       getKafkaConnectPageTitle(clusterConnectorsRelativePath, 'local')
-    ).toBe('Connectors | Kafka Connect | local | Kafbat UI');
+    ).toBe('Connectors | Kafka Connect | local | Custom Kafka UI');
   });
 
   it('maps ksqldb routes to page titles', () => {
     expect(getKsqlDbPageTitle(clusterKsqlDbQueryPath('local'), 'local')).toBe(
-      'Query | KSQL DB | local | Kafbat UI'
+      'Query | KSQL DB | local | Custom Kafka UI'
     );
   });
 });
