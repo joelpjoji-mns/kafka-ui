@@ -12,6 +12,10 @@ import {
   ApplicationConfigApi,
   AclsApi,
   UnmappedApi,
+  OperationsCenterApi,
+  TopicGovernanceAdvisorApi,
+  AuditApi,
+  RecordExplorerApi,
 } from 'generated-sources';
 import { BASE_PARAMS } from 'lib/constants';
 
@@ -29,3 +33,9 @@ export const authApiClient = new AuthorizationApi(apiClientConf);
 export const appConfigApiClient = new ApplicationConfigApi(apiClientConf);
 export const aclApiClient = new AclsApi(apiClientConf);
 export const internalApiClient = new UnmappedApi(apiClientConf);
+export const operationsCenterApiClient = new OperationsCenterApi(apiClientConf);
+export const topicGovernanceApiClient = new TopicGovernanceAdvisorApi(
+  apiClientConf
+);
+export const auditApiClient = new AuditApi(apiClientConf);
+export const recordExplorerApiClient = new RecordExplorerApi(apiClientConf);
