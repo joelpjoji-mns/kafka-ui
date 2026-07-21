@@ -23,6 +23,7 @@ const schemasAPIUrl = `/api/clusters/${clusterName}/schemas`;
 const schemasWithSubjectAPIUrl = `${schemasAPIUrl}/${subject}`;
 const schemasAPILatestUrl = `${schemasWithSubjectAPIUrl}/latest`;
 const schemasAPIVersionsUrl = `${schemasWithSubjectAPIUrl}/versions`;
+const schemaImpactUrl = `${schemasAPIVersionsUrl}/${schemaVersion.version}/impact`;
 const schemaCompatibilityUrl = `${schemasAPIUrl}/compatibility`;
 const schemaCompatibilityWithSubjectUrl = `${schemasWithSubjectAPIUrl}/compatibility`;
 
@@ -65,6 +66,27 @@ describe('Schema hooks', () => {
         const mock = fetchMock.getOnce(schemasAPIVersionsUrl, versionPayload);
         const { result } = renderQueryHook(() =>
           hooks.useGetSchemasVersions({ clusterName, subject })
+        );
+        await expectQueryWorks(mock, result);
+      });
+    });
+
+    describe('useGetSchemaImpact', () => {
+      it('returns the contract-backed impact data', async () => {
+        const impact = {
+          available: true,
+          schema: schemaVersion,
+          topics: [{ name: 'orders' }],
+          references: [],
+          connectors: [],
+        };
+        const mock = fetchMock.getOnce(schemaImpactUrl, impact);
+        const { result } = renderQueryHook(() =>
+          hooks.useGetSchemaImpact({
+            clusterName,
+            subject,
+            version: Number(schemaVersion.version),
+          })
         );
         await expectQueryWorks(mock, result);
       });
