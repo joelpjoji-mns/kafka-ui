@@ -1,10 +1,13 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
+import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { renderQueryHook, TestQueryClientProvider } from 'lib/testHelpers';
 import * as hooks from 'lib/hooks/api/topicMessages';
 import fetchMock from 'fetch-mock';
 import { UseQueryResult, UseSuspenseQueryResult } from '@tanstack/react-query';
-import { SerdeUsage } from 'generated-sources';
+import { SerdeUsage, TopicMessageEventTypeEnum } from 'generated-sources';
 import { MessagesFilterKeys } from 'lib/constants';
+import { MemoryRouter } from 'react-router-dom';
+import { createElement, type PropsWithChildren } from 'react';
 
 const clusterName = 'test-cluster';
 const topicName = 'test-topic';
@@ -27,6 +30,24 @@ jest.mock('lib/errorHandling', () => ({
   showServerError: jest.fn(),
 }));
 
+jest.mock('@microsoft/fetch-event-source', () => ({
+  fetchEventSource: jest.fn(),
+}));
+
+const MessagesHookRouter = ({ children }: PropsWithChildren) =>
+  createElement(MemoryRouter, null, children);
+
+const TimeRangeMessagesHookRouter = ({ children }: PropsWithChildren) =>
+  createElement(
+    MemoryRouter,
+    {
+      initialEntries: [
+        '/?mode=FROM_TIMESTAMP&timestamp=1704067200000&timestampTo=1704153600000',
+      ],
+    },
+    children
+  );
+
 describe('Topic Messages hooks', () => {
   const createObjectURL = jest.fn(() => 'blob:messages');
   const revokeObjectURL = jest.fn();
@@ -48,6 +69,7 @@ describe('Topic Messages hooks', () => {
     createObjectURL.mockReturnValue('blob:messages');
     revokeObjectURL.mockClear();
     click.mockClear();
+    (fetchEventSource as jest.Mock).mockResolvedValue(undefined);
   });
 
   it('handles useSerdes', async () => {
@@ -76,8 +98,90 @@ describe('Topic Messages hooks', () => {
     ]);
   });
 
-  it('downloads topic messages zip', async () => {
-    const path = `/api/clusters/${clusterName}/topics/${topicName}/messages/download?limit=2&partitions=0%2C1&stringFilter=payload&smartFilterId=abc123&keySerde=String&valueSerde=String`;
+  it('starts a fresh message stream in tailing mode', async () => {
+    const { unmount } = renderHook(
+      () => hooks.useTopicMessages({ clusterName, topicName }),
+      { wrapper: MessagesHookRouter }
+    );
+
+    await waitFor(() => {
+      expect(fetchEventSource).toHaveBeenCalledWith(
+        expect.stringContaining('mode=TAILING'),
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    unmount();
+  });
+
+  it('keeps the recent tailing snapshot ordered before prepending live records', async () => {
+    const historicalNewest = { partition: 0, offset: 2, value: 'history-newest' };
+    const historicalOldest = { partition: 0, offset: 1, value: 'history-oldest' };
+    const liveMessage = { partition: 0, offset: 3, value: 'live-message' };
+    const { result, unmount } = renderHook(
+      () => hooks.useTopicMessages({ clusterName, topicName }),
+      { wrapper: MessagesHookRouter }
+    );
+
+    await waitFor(() => expect(fetchEventSource).toHaveBeenCalledTimes(1));
+
+    const options = (fetchEventSource as jest.Mock).mock.calls[0][1];
+    await act(async () => {
+      await options.onopen({ ok: true, status: 200 });
+      options.onmessage({
+        data: JSON.stringify({
+          type: TopicMessageEventTypeEnum.MESSAGE,
+          message: historicalNewest,
+        }),
+      });
+      options.onmessage({
+        data: JSON.stringify({
+          type: TopicMessageEventTypeEnum.MESSAGE,
+          message: historicalOldest,
+        }),
+      });
+      options.onmessage({
+        data: JSON.stringify({
+          type: TopicMessageEventTypeEnum.PHASE,
+          phase: { name: 'Live polling' },
+        }),
+      });
+      options.onmessage({
+        data: JSON.stringify({
+          type: TopicMessageEventTypeEnum.MESSAGE,
+          message: liveMessage,
+        }),
+      });
+    });
+
+    expect(result.current.messages).toEqual([
+      liveMessage,
+      historicalNewest,
+      historicalOldest,
+    ]);
+    expect(result.current.isLiveStreamReady).toBe(true);
+
+    unmount();
+  });
+
+  it('forwards the selected end timestamp to the message stream', async () => {
+    const { unmount } = renderHook(
+      () => hooks.useTopicMessages({ clusterName, topicName }),
+      { wrapper: TimeRangeMessagesHookRouter }
+    );
+
+    await waitFor(() => {
+      expect(fetchEventSource).toHaveBeenCalledWith(
+        expect.stringContaining('timestampTo=1704153600000'),
+        expect.objectContaining({ method: 'GET' })
+      );
+    });
+
+    unmount();
+  });
+
+  it('downloads topic messages zip with repeated string filters', async () => {
+    const path = `/api/clusters/${clusterName}/topics/${topicName}/messages/download?limit=2&partitions=0%2C1&stringFilter=payload&stringFilter=secondary&smartFilterId=abc123&keySerde=String&valueSerde=String`;
     const mock = fetchMock.getOnce(path, {
       body: 'zip-content',
       headers: {
@@ -95,7 +199,7 @@ describe('Topic Messages hooks', () => {
         topicName,
         limit: 2,
         partitions: ['0', '1'],
-        stringFilter: 'payload',
+        stringFilters: ['payload', 'secondary'],
         smartFilterId: 'abc123',
         keySerde: 'String',
         valueSerde: 'String',
