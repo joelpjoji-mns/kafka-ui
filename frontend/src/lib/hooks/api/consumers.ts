@@ -11,6 +11,7 @@ import {
   ConsumerGroupDetails,
   ConsumerGroupLag,
   ConsumerGroupOffsetsReset,
+  ConsumerGroupOffsetsResetPreview,
   ConsumerGroupOrdering,
   ConsumerGroupsLagResponse,
   ConsumerGroupState,
@@ -113,6 +114,39 @@ export const useResetConsumerGroupOffsetsMutation = ({
     },
   });
 };
+
+type UseConsumerGroupOffsetsResetPreviewProps = UseConsumerGroupDetailsProps & {
+  reset: ConsumerGroupOffsetsReset;
+  enabled?: boolean;
+};
+
+export function useConsumerGroupOffsetsResetPreview({
+  clusterName,
+  consumerGroupID,
+  reset,
+  enabled = true,
+}: UseConsumerGroupOffsetsResetPreviewProps) {
+  return useQuery<ConsumerGroupOffsetsResetPreview, ServerResponse>({
+    queryKey: [
+      'clusters',
+      clusterName,
+      'consumerGroups',
+      consumerGroupID,
+      'offsets',
+      'preview',
+      reset,
+    ],
+    queryFn: () =>
+      apiFetch(() =>
+        api.previewConsumerGroupOffsetsReset({
+          clusterName,
+          id: consumerGroupID,
+          consumerGroupOffsetsReset: reset,
+        })
+      ),
+    enabled: enabled && Boolean(consumerGroupID),
+  });
+}
 
 export const useDeleteConsumerGroupOffsetsMutation = ({
   clusterName,
