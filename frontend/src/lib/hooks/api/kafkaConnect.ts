@@ -2,6 +2,7 @@ import {
   Connect,
   Connector,
   ConnectorAction,
+  ConnectorTriageSnapshot,
   FullConnectorInfo,
   NewConnector,
   Task,
@@ -67,6 +68,12 @@ const connectorTasksKey = (props: UseConnectorProps) => [
   ...connectorKey(props),
   'tasks',
 ];
+const connectorTriageKey = (clusterName: ClusterName) => [
+  'clusters',
+  clusterName,
+  'connectors',
+  'triage',
+];
 
 export function useConnects(
   clusterName: ClusterName,
@@ -106,6 +113,19 @@ export function useConnectors(
         }
         return 0;
       }),
+    ...options,
+  });
+}
+export function useConnectorTriage(
+  clusterName: ClusterName,
+  options?: Omit<
+    UseQueryOptions<ConnectorTriageSnapshot, ServerResponse>,
+    'queryKey' | 'queryFn'
+  >
+) {
+  return useQuery<ConnectorTriageSnapshot, ServerResponse>({
+    queryKey: connectorTriageKey(clusterName),
+    queryFn: () => apiFetch(() => api.getConnectorTriage({ clusterName })),
     ...options,
   });
 }
