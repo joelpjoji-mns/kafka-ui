@@ -7,16 +7,19 @@ import {
 import {
   GLOBAL_COMPATIBILITY_SCHEMAS_QUERY_KEY,
   LATEST_SCHEMA_QUERY_KEY,
+  SCHEMA_IMPACT_QUERY_KEY,
   SCHEMA_QUERY_KEY,
   SCHEMAS_VERSION_QUERY_KEY,
 } from 'lib/queries';
 import {
   CompatibilityLevel,
   GetAllVersionsBySubjectRequest,
+  GetSchemaImpactRequest,
   GetLatestSchemaRequest,
   GetSchemasRequest,
   NewSchemaSubject,
   SchemaSubject,
+  SchemaImpact,
   SchemaSubjectsResponse,
   UpdateGlobalSchemaCompatibilityLevelRequest,
   UpdateSchemaCompatibilityLevelRequest,
@@ -97,6 +100,30 @@ export function useGetSchemasVersions(
           clusterName,
           subject,
         })
+      ),
+    ...options,
+  });
+}
+
+export function useGetSchemaImpact(
+  params: GetSchemaImpactRequest,
+  options?: Omit<
+    UseQueryOptions<SchemaImpact, ServerResponse>,
+    'queryKey' | 'queryFn'
+  >
+) {
+  const { clusterName, subject, version } = params;
+  return useQuery<SchemaImpact, ServerResponse>({
+    queryKey: [
+      SCHEMA_QUERY_KEY,
+      SCHEMA_IMPACT_QUERY_KEY,
+      clusterName,
+      subject,
+      version,
+    ],
+    queryFn: () =>
+      apiFetch(() =>
+        schemasApiClient.getSchemaImpact({ clusterName, subject, version })
       ),
     ...options,
   });
