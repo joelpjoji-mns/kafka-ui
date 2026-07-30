@@ -36,7 +36,7 @@ interface DownloadMessagesZipProps {
   topicName: TopicName;
   limit: number;
   partitions?: Array<number | string>;
-  stringFilter?: string;
+  stringFilters?: string[];
   smartFilterId?: string;
   keySerde?: string;
   valueSerde?: string;
@@ -130,6 +130,8 @@ export const useTopicMessages = ({
   const [consumptionStats, setConsumptionStats] =
     React.useState<TopicMessageConsuming>();
   const [isFetching, setIsFetching] = React.useState(false);
+  const [isLiveStreamReady, setIsLiveStreamReady] = React.useState(false);
+  const liveStreamReadyRef = useRef(false);
   const abortController = useRef(new AbortController());
   const prevCursor = useRef(0);
   const prevRequestKey = useRef('');
@@ -145,14 +147,14 @@ export const useTopicMessages = ({
   }, []);
 
   React.useEffect(() => {
-    const mode = convertStrToPollingMode(
-      searchParams.get(MessagesFilterKeys.mode) || ''
-    );
+    const mode =
+      convertStrToPollingMode(
+        searchParams.get(MessagesFilterKeys.mode) || ''
+      ) || PollingMode.TAILING;
+    setIsLiveStreamReady(false);
+    liveStreamReadyRef.current = false;
 
     const timestampToRaw = searchParams.get(MessagesFilterKeys.timestampTo);
-    const timestampToMs = timestampToRaw ? parseFloat(timestampToRaw) : null;
-    const hasEndCap =
-      timestampToMs !== null && Number.isFinite(timestampToMs);
 
     const fetchData = async () => {
       setIsFetching(true);
@@ -163,7 +165,7 @@ export const useTopicMessages = ({
 
       const requestParams = new URLSearchParams({
         limit: searchParams.get(MessagesFilterKeys.limit) || MESSAGES_PER_PAGE,
-        mode: searchParams.get(MessagesFilterKeys.mode) || '',
+        mode,
       });
 
       [
@@ -199,6 +201,10 @@ export const useTopicMessages = ({
           );
           break;
         default:
+      }
+
+      if (timestampToRaw) {
+        requestParams.set(MessagesFilterKeys.timestampTo, timestampToRaw);
       }
 
       const partitions = searchParams.get(MessagesFilterKeys.partitions);
@@ -248,17 +254,10 @@ export const useTopicMessages = ({
           switch (parsedData.type) {
             case TopicMessageEventTypeEnum.MESSAGE:
               if (message) {
-                // Client-side upper cap: if a range end (timestampTo) is set
-                // and this message is after it, drop it and abort the stream.
-                if (hasEndCap && message.timestamp) {
-                  const msgTs = new Date(message.timestamp).getTime();
-                  if (Number.isFinite(msgTs) && msgTs > (timestampToMs as number)) {
-                    abortFetchData();
-                    break;
-                  }
-                }
+                const shouldPrependLiveMessage =
+                  mode === PollingMode.TAILING && liveStreamReadyRef.current;
                 setMessages((prevMessages) => {
-                  if (mode === PollingMode.TAILING) {
+                  if (shouldPrependLiveMessage) {
                     return [message, ...prevMessages];
                   }
                   return [...prevMessages, message];
@@ -266,7 +265,13 @@ export const useTopicMessages = ({
               }
               break;
             case TopicMessageEventTypeEnum.PHASE:
-              if (parsedData.phase?.name) setPhase(parsedData.phase.name);
+              if (parsedData.phase?.name) {
+                setPhase(parsedData.phase.name);
+                if (mode === PollingMode.TAILING && parsedData.phase.name === 'Live polling') {
+                  liveStreamReadyRef.current = true;
+                  setIsLiveStreamReady(true);
+                }
+              }
               break;
             case TopicMessageEventTypeEnum.CONSUMING:
               if (consuming) setConsumptionStats(consuming);
@@ -302,6 +307,7 @@ export const useTopicMessages = ({
     messages,
     consumptionStats,
     isFetching,
+    isLiveStreamReady,
     abortFetchData,
   };
 };
@@ -325,7 +331,7 @@ export function useDownloadMessagesZip() {
       topicName,
       limit,
       partitions,
-      stringFilter,
+      stringFilters,
       smartFilterId,
       keySerde,
       valueSerde,
@@ -343,8 +349,13 @@ export function useDownloadMessagesZip() {
         requestParams.set('partitions', partitions.join(','));
       }
 
+      appendStringFilters(
+        requestParams,
+        stringFilters?.[0] || null,
+        stringFilters?.slice(1)
+      );
+
       const optionalParams: Array<[string, string | undefined]> = [
-        ['stringFilter', stringFilter],
         ['smartFilterId', smartFilterId],
         ['keySerde', keySerde],
         ['valueSerde', valueSerde],
