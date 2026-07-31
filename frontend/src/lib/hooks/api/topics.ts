@@ -26,6 +26,10 @@ import {
   FullConnectorInfo,
   ListTopicAclsRequest,
   KafkaAcl,
+  MessageValidationPreview,
+  TopicDataProfile,
+  TopicDeveloperInsights,
+  GetTopicDeveloperInsightsRequest,
 } from 'generated-sources';
 import {
   apiFetch,
@@ -57,6 +61,10 @@ export const topicKeys = {
     [...topicKeys.details(props), 'consumerGroups'] as const,
   statistics: (props: GetTopicDetailsRequest) =>
     [...topicKeys.details(props), 'statistics'] as const,
+  dataProfile: (props: GetTopicDetailsRequest, sampleLimit: number) =>
+    [...topicKeys.details(props), 'dataProfile', sampleLimit] as const,
+  developerInsights: (props: GetTopicDeveloperInsightsRequest) =>
+    [...topicKeys.details(props), 'developerInsights'] as const,
   connectors: (props: GetTopicConnectorsRequest) =>
     [...topicKeys.details(props), 'connectors'] as const,
   acls: (props: ListTopicAclsRequest) =>
@@ -98,6 +106,20 @@ export function useTopicConsumerGroups(props: GetTopicDetailsRequest) {
   return useSuspenseQuery({
     queryKey: topicKeys.consumerGroups(props),
     queryFn: () => consumerGroupsApiClient.getTopicConsumerGroups(props),
+  });
+}
+
+export function useTopicDeveloperInsights(
+  props: GetTopicDeveloperInsightsRequest,
+  queryOptions?: Omit<
+    UseQueryOptions<TopicDeveloperInsights, ServerResponse>,
+    'queryKey' | 'queryFn'
+  >
+) {
+  return useQuery<TopicDeveloperInsights, ServerResponse>({
+    queryKey: topicKeys.developerInsights(props),
+    queryFn: () => apiFetch(() => api.getTopicDeveloperInsights(props)),
+    ...queryOptions,
   });
 }
 
@@ -340,6 +362,19 @@ export function useSendMessage(props: GetTopicDetailsRequest) {
   });
 }
 
+export function usePreviewTopicMessage(props: GetTopicDetailsRequest) {
+  return useMutation<MessageValidationPreview, void, CreateTopicMessage>({
+    mutationFn: (message) =>
+      messagesApi.previewTopicMessage({
+        ...props,
+        createTopicMessage: message,
+      }),
+    onError: (e) => {
+      showServerError(e as unknown as Response);
+    },
+  });
+}
+
 // Statistics
 export function useTopicAnalysis(
   props: GetTopicDetailsRequest,
@@ -385,5 +420,17 @@ export function useCancelTopicAnalysis(props: GetTopicDetailsRequest) {
       });
       client.invalidateQueries({ queryKey: topicKeys.statistics(props) });
     },
+  });
+}
+
+export function useTopicDataProfile(
+  props: GetTopicDetailsRequest,
+  sampleLimit: number
+) {
+  return useQuery<TopicDataProfile, ServerResponse>({
+    queryKey: topicKeys.dataProfile(props, sampleLimit),
+    queryFn: () =>
+      apiFetch(() => api.getTopicDataProfile({ ...props, sampleLimit })),
+    placeholderData: (previousData) => previousData,
   });
 }
