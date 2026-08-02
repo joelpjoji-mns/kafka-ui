@@ -2,10 +2,14 @@ import { useSearchParams } from 'react-router-dom';
 import { PollingMode } from 'generated-sources';
 import { useEffect } from 'react';
 import { Option } from 'react-multi-select-component';
-import { MessagesFilterKeys } from 'lib/constants';
+import {
+  MAX_MESSAGES_PER_PAGE,
+  MESSAGES_PER_PAGE,
+  MessagesFilterKeys,
+} from 'lib/constants';
 import { ClusterName } from 'lib/interfaces/cluster';
 
-import { convertStrToPollingMode, ModeOptions } from './filterUtils';
+import { convertStrToPollingMode } from './filterUtils';
 import {
   AdvancedFilter,
   selectFilter,
@@ -14,9 +18,16 @@ import {
 import { useMessagesFiltersFields } from './useMessagesFiltersFields';
 import useAppParams from './useAppParams';
 
-const PER_PAGE = 100;
+const defaultModeValue = PollingMode.TAILING;
 
-const defaultModeValue = ModeOptions[0].value;
+const normalizeMessageLimit = (value: string) => {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    return MESSAGES_PER_PAGE;
+  }
+
+  return Math.min(parsed, MAX_MESSAGES_PER_PAGE).toString();
+};
 
 export function useRefreshData(initSearchParams?: URLSearchParams) {
   const [, setSearchParams] = useSearchParams(initSearchParams);
@@ -76,7 +87,12 @@ export function useMessagesFilters(topicName: string) {
   useEffect(() => {
     setSearchParams((params) => {
       initMessagesFiltersFields(params);
-      params.set(MessagesFilterKeys.limit, PER_PAGE.toString());
+      params.set(
+        MessagesFilterKeys.limit,
+        normalizeMessageLimit(
+          params.get(MessagesFilterKeys.limit) || MESSAGES_PER_PAGE
+        )
+      );
 
       if (!params.get(MessagesFilterKeys.mode)) {
         params.set(MessagesFilterKeys.mode, defaultModeValue);
@@ -110,6 +126,10 @@ export function useMessagesFilters(topicName: string) {
     searchParams.get(MessagesFilterKeys.valueSerde) || undefined;
 
   const offset = searchParams.get(MessagesFilterKeys.offset) || undefined;
+
+  const limit = normalizeMessageLimit(
+    searchParams.get(MessagesFilterKeys.limit) || MESSAGES_PER_PAGE
+  );
 
   const search = searchParams.get(MessagesFilterKeys.stringFilter) || '';
 
@@ -261,6 +281,14 @@ export function useMessagesFilters(topicName: string) {
     });
   };
 
+  const setLimit = (newLimit: string) => {
+    setSearchParams((params) => {
+      params.set(MessagesFilterKeys.limit, normalizeMessageLimit(newLimit));
+      params.delete(MessagesFilterKeys.cursor);
+      return params;
+    });
+  };
+
   const setSearch = (value: string) => {
     setSearchParams((params) => {
       if (value) {
@@ -345,6 +373,8 @@ export function useMessagesFilters(topicName: string) {
     setValueSerde,
     offset,
     setOffsetValue,
+    limit,
+    setLimit,
     search,
     setSearch,
     partitions,
@@ -367,7 +397,8 @@ export function useIsLiveMode(initSearchParams?: URLSearchParams) {
   const [searchParams] = useSearchParams(initSearchParams);
 
   return (
-    convertStrToPollingMode(searchParams.get(MessagesFilterKeys.mode) || '') ===
-    PollingMode.TAILING
+    (convertStrToPollingMode(
+      searchParams.get(MessagesFilterKeys.mode) || ''
+    ) || PollingMode.TAILING) === PollingMode.TAILING
   );
 }
