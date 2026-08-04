@@ -10,15 +10,17 @@ import {
   clusterTopicAclsRelativePath,
   clusterTopicConnectorsRelativePath,
   clusterTopicConsumerGroupsPath,
+  clusterTopicDataProfilePath,
   clusterTopicEditPath,
   clusterTopicMessagesPath,
   clusterTopicPath,
   clusterTopicSettingsPath,
   clusterTopicStatisticsPath,
   kafkaConnectClustersRelativePath,
+  kafkaConnectTriageRelativePath,
 } from 'lib/paths';
 
-const APP_NAME = 'Kafbat UI';
+const APP_NAME = 'Custom Kafka UI';
 
 export const buildPageTitle = (...parts: Array<string | undefined | null>) =>
   [...parts.filter((part): part is string => !!part?.trim()), APP_NAME].join(
@@ -31,6 +33,10 @@ export const getKafkaConnectPageTitle = (
 ) => {
   if (currentPath === kafkaConnectClustersRelativePath) {
     return buildPageTitle('Clusters', 'Kafka Connect', clusterName);
+  }
+
+  if (currentPath === kafkaConnectTriageRelativePath) {
+    return buildPageTitle('Triage', 'Kafka Connect', clusterName);
   }
 
   return buildPageTitle('Connectors', 'Kafka Connect', clusterName);
@@ -110,6 +116,10 @@ export const getTopicPageTitle = (
 
   if (pathname === clusterTopicStatisticsPath(clusterName, topicName)) {
     return buildPageTitle('Statistics', topicName, clusterName);
+  }
+
+  if (pathname === clusterTopicDataProfilePath(clusterName, topicName)) {
+    return buildPageTitle('Profile', topicName, clusterName);
   }
 
   if (
