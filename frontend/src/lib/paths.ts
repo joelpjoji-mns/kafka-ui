@@ -76,11 +76,27 @@ export type ClusterBrokerParam = {
 
 // Consumer Groups
 export const clusterConsumerGroupsRelativePath = 'consumer-groups';
+export const clusterOperationsRelativePath = 'operations';
+export const clusterTopicGovernanceRelativePath = 'topic-governance';
+export const clusterAuditRelativePath = 'audit';
+export const clusterRecordExplorerRelativePath = 'record-explorer';
 export const clusterConsumerGroupResetRelativePath = 'reset-offsets';
 export const clusterConsumerGroupResetOffsetsRelativePath = `${RouteParams.consumerGroupID}/${clusterConsumerGroupResetRelativePath}`;
 export const clusterConsumerGroupsPath = (
   clusterName: ClusterName = RouteParams.clusterName
 ) => `${clusterPath(clusterName)}/${clusterConsumerGroupsRelativePath}`;
+export const clusterOperationsPath = (
+  clusterName: ClusterName = RouteParams.clusterName
+) => `${clusterPath(clusterName)}/${clusterOperationsRelativePath}`;
+export const clusterTopicGovernancePath = (
+  clusterName: ClusterName = RouteParams.clusterName
+) => `${clusterPath(clusterName)}/${clusterTopicGovernanceRelativePath}`;
+export const clusterAuditPath = (
+  clusterName: ClusterName = RouteParams.clusterName
+) => `${clusterPath(clusterName)}/${clusterAuditRelativePath}`;
+export const clusterRecordExplorerPath = (
+  clusterName: ClusterName = RouteParams.clusterName
+) => `${clusterPath(clusterName)}/${clusterRecordExplorerRelativePath}`;
 export const clusterConsumerGroupDetailsPath = (
   clusterName: ClusterName = RouteParams.clusterName,
   groupId: string = RouteParams.consumerGroupID
@@ -166,6 +182,8 @@ export const clusterTopicDownloadRelativePath = 'download';
 export const clusterTopicUploadRelativePath = 'upload';
 export const clusterTopicConsumerGroupsRelativePath = 'consumer-groups';
 export const clusterTopicStatisticsRelativePath = 'statistics';
+export const clusterTopicDataProfileRelativePath = 'profile';
+export const clusterTopicDeveloperRelativePath = 'developer';
 export const clusterTopicConnectorsRelativePath = 'connectors';
 export const clusterTopicAclsRelativePath = 'acls';
 export const clusterTopicEditRelativePath = 'edit';
@@ -223,6 +241,29 @@ export const clusterTopicStatisticsPath = (
     clusterName,
     topicName
   )}/${clusterTopicStatisticsRelativePath}`;
+export const clusterTopicDataProfilePath = (
+  clusterName: ClusterName = RouteParams.clusterName,
+  topicName: TopicName = RouteParams.topicName
+) =>
+  `${clusterTopicPath(
+    clusterName,
+    topicName
+  )}/${clusterTopicDataProfileRelativePath}`;
+
+export const clusterTopicDeveloperPath = (
+  clusterName: ClusterName = RouteParams.clusterName,
+  topicName: TopicName = RouteParams.topicName
+) =>
+  `${clusterTopicPath(
+    clusterName,
+    topicName
+  )}/${clusterTopicDeveloperRelativePath}`;
+
+export const clusterTopicAclsPath = (
+  clusterName: ClusterName = RouteParams.clusterName,
+  topicName: TopicName = RouteParams.topicName
+) =>
+  `${clusterTopicPath(clusterName, topicName)}/${clusterTopicAclsRelativePath}`;
 
 export type RouteParamsClusterTopic = {
   clusterName: ClusterName;
@@ -234,6 +275,7 @@ export const clusterConnectsRelativePath = 'connects';
 export const clusterConnectorsRelativePath = 'connectors';
 export const kafkaConnectRelativePath = 'kafka-connect';
 export const kafkaConnectClustersRelativePath = 'clusters';
+export const kafkaConnectTriageRelativePath = 'triage';
 
 export const clusterConnectConnectorsRelativePath = `${RouteParams.connectName}/connectors`;
 export const clusterConnectConnectorRelativePath = `${clusterConnectsRelativePath}/${clusterConnectConnectorsRelativePath}/${RouteParams.connectorName}`;
@@ -254,6 +296,10 @@ export const kafkaConnectClustersPath = (
 ) => {
   return `${kafkaConnectPath(clusterName)}/clusters`;
 };
+
+export const kafkaConnectTriagePath = (
+  clusterName: ClusterName = RouteParams.clusterName
+) => `${kafkaConnectPath(clusterName)}/${kafkaConnectTriageRelativePath}`;
 
 export const clusterConnectorsPath = (
   clusterName: ClusterName = RouteParams.clusterName
