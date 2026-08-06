@@ -4,5 +4,6 @@
 export const SCHEMA_QUERY_KEY = 'schemas';
 export const LATEST_SCHEMA_QUERY_KEY = 'latest_schemas';
 export const SCHEMAS_VERSION_QUERY_KEY = 'schemas_version';
+export const SCHEMA_IMPACT_QUERY_KEY = 'schema_impact';
 export const GLOBAL_COMPATIBILITY_SCHEMAS_QUERY_KEY =
   'global_compatibility_schemas';
