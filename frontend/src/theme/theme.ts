@@ -223,6 +223,11 @@ const baseTheme = {
     },
     socialLink: Colors.neutral[20],
   },
+  effects: {
+    appBackground: Colors.brand[0],
+    surfaceBackdropFilter: 'none',
+    surfaceShadow: 'none',
+  },
   alert: {
     color: {
       error: Colors.red[10],
@@ -1660,5 +1665,386 @@ export const darkTheme: ThemeType = {
     up: Colors.orange[20],
     same: Colors.neutral[0],
     none: Colors.neutral[0],
+  },
+};
+
+export const midnightTheme: ThemeType = {
+  ...darkTheme,
+  logo: {
+    color: '#F4C95D',
+  },
+  default: {
+    ...darkTheme.default,
+    backgroundColor: '#171717',
+  },
+  link: {
+    color: '#F4C95D',
+    hoverColor: '#FFE08A',
+  },
+  pageHeading: {
+    ...darkTheme.pageHeading,
+    title: {
+      color: '#F4C95D',
+    },
+  },
+  layout: {
+    ...darkTheme.layout,
+    mainBackgroundColor: '#171717',
+    stuffColor: '#27272A',
+    stuffBorderColor: '#3F3F46',
+    socialLink: '#A1A1AA',
+  },
+  menu: {
+    ...darkTheme.menu,
+    header: {
+      backgroundColor: '#171717',
+    },
+    primary: {
+      ...darkTheme.menu.primary,
+      color: {
+        ...darkTheme.menu.primary.color,
+        normal: '#A1A1AA',
+        hover: '#FAFAFA',
+        active: '#F4C95D',
+      },
+      chevronIconColor: '#A1A1AA',
+    },
+  },
+  button: {
+    ...darkTheme.button,
+    primary: {
+      ...darkTheme.button.primary,
+      backgroundColor: {
+        normal: '#F4C95D',
+        hover: '#FFE08A',
+        active: '#D8A843',
+        disabled: '#6D5A2D',
+      },
+      color: {
+        normal: '#171717',
+        hover: '#171717',
+        active: '#171717',
+        disabled: '#27272A',
+      },
+    },
+  },
+};
+
+export const harborTheme: ThemeType = {
+  ...theme,
+  logo: {
+    color: '#0F4C5C',
+  },
+  default: {
+    ...theme.default,
+    backgroundColor: '#F7FBFC',
+  },
+  link: {
+    color: '#006D77',
+    hoverColor: '#0F4C5C',
+  },
+  pageHeading: {
+    ...theme.pageHeading,
+    title: {
+      color: '#006D77',
+    },
+  },
+  layout: {
+    ...theme.layout,
+    mainBackgroundColor: '#F7FBFC',
+    stuffColor: '#E7F2F3',
+    stuffBorderColor: '#BED9DC',
+    socialLink: '#6B8E93',
+  },
+  menu: {
+    ...theme.menu,
+    header: {
+      backgroundColor: '#F7FBFC',
+    },
+    primary: {
+      ...theme.menu.primary,
+      color: {
+        ...theme.menu.primary.color,
+        hover: '#0F4C5C',
+        active: '#006D77',
+      },
+      chevronIconColor: '#6B8E93',
+    },
+  },
+  button: {
+    ...theme.button,
+    primary: {
+      ...theme.button.primary,
+      backgroundColor: {
+        normal: '#006D77',
+        hover: '#0F4C5C',
+        active: '#004C54',
+        disabled: '#8DB9BD',
+      },
+    },
+  },
+};
+
+export const emberTheme: ThemeType = {
+  ...theme,
+  logo: {
+    color: '#9C2F1A',
+  },
+  link: {
+    color: '#B33A22',
+    hoverColor: '#7F2113',
+  },
+  pageHeading: {
+    ...theme.pageHeading,
+    title: {
+      color: '#9C2F1A',
+    },
+  },
+  layout: {
+    ...theme.layout,
+    stuffColor: '#FBE9E5',
+    stuffBorderColor: '#E7B9AF',
+    socialLink: '#9B6A61',
+  },
+  menu: {
+    ...theme.menu,
+    primary: {
+      ...theme.menu.primary,
+      color: {
+        ...theme.menu.primary.color,
+        hover: '#7F2113',
+        active: '#9C2F1A',
+      },
+      chevronIconColor: '#9B6A61',
+    },
+  },
+  button: {
+    ...theme.button,
+    primary: {
+      ...theme.button.primary,
+      backgroundColor: {
+        normal: '#9C2F1A',
+        hover: '#7F2113',
+        active: '#66170D',
+        disabled: '#D9AAA0',
+      },
+    },
+  },
+};
+
+export const amoledTheme: ThemeType = {
+  ...darkTheme,
+  auth_page: {
+    ...darkTheme.auth_page,
+    backgroundColor: '#000000',
+    signIn: {
+      ...darkTheme.auth_page.signIn,
+      authCard: {
+        ...darkTheme.auth_page.signIn.authCard,
+        backgroundColor: '#080808',
+        borderColor: '#262626',
+      },
+    },
+  },
+  default: {
+    ...darkTheme.default,
+    backgroundColor: '#000000',
+  },
+  layout: {
+    ...darkTheme.layout,
+    mainBackgroundColor: '#000000',
+    stuffColor: '#101010',
+    stuffBorderColor: '#292929',
+    socialLink: '#A3A3A3',
+  },
+  effects: {
+    appBackground: '#000000',
+    surfaceBackdropFilter: 'none',
+    surfaceShadow: 'none',
+  },
+  menu: {
+    ...darkTheme.menu,
+    header: {
+      backgroundColor: '#000000',
+    },
+  },
+  dropdown: {
+    ...darkTheme.dropdown,
+    backgroundColor: '#080808',
+    borderColor: '#292929',
+    item: {
+      ...darkTheme.dropdown.item,
+      backgroundColor: {
+        default: '#080808',
+        hover: '#171717',
+      },
+    },
+  },
+  table: {
+    ...darkTheme.table,
+    actionBar: {
+      backgroundColor: '#000000',
+    },
+    th: {
+      ...darkTheme.table.th,
+      backgroundColor: {
+        normal: '#000000',
+      },
+    },
+    td: {
+      ...darkTheme.table.td,
+      borderTop: '#202020',
+    },
+    tr: {
+      backgroundColor: {
+        normal: '#000000',
+        hover: '#101010',
+      },
+    },
+  },
+  select: {
+    ...darkTheme.select,
+    backgroundColor: {
+      normal: '#080808',
+      hover: '#171717',
+      active: '#202020',
+    },
+  },
+  input: {
+    ...darkTheme.input,
+    backgroundColor: {
+      normal: '#080808',
+      readOnly: '#101010',
+      disabled: '#000000',
+    },
+  },
+  modal: {
+    ...darkTheme.modal,
+    backgroundColor: '#080808',
+    border: {
+      top: '#202020',
+      bottom: '#202020',
+      contrast: '#3D3D3D',
+    },
+  },
+  confirmModal: {
+    backgroundColor: '#080808',
+  },
+};
+
+export const glassTheme: ThemeType = {
+  ...theme,
+  logo: {
+    color: '#0D5C4F',
+  },
+  default: {
+    ...theme.default,
+    backgroundColor: 'rgba(255, 255, 255, 0.68)',
+  },
+  link: {
+    color: '#0D7661',
+    hoverColor: '#084B3E',
+  },
+  pageHeading: {
+    ...theme.pageHeading,
+    title: {
+      color: '#0D7661',
+    },
+  },
+  layout: {
+    ...theme.layout,
+    mainBackgroundColor: 'transparent',
+    stuffColor: 'rgba(255, 255, 255, 0.46)',
+    stuffBorderColor: 'rgba(18, 82, 70, 0.18)',
+    socialLink: '#47776C',
+  },
+  effects: {
+    appBackground:
+      'linear-gradient(135deg, #D8F0E4 0%, #DCEFF0 46%, #F6E7CF 100%)',
+    surfaceBackdropFilter: 'blur(18px) saturate(130%)',
+    surfaceShadow: '0 14px 36px rgba(18, 82, 70, 0.12)',
+  },
+  menu: {
+    ...theme.menu,
+    header: {
+      backgroundColor: 'rgba(255, 255, 255, 0.58)',
+    },
+    primary: {
+      ...theme.menu.primary,
+      color: {
+        ...theme.menu.primary.color,
+        hover: '#084B3E',
+        active: '#0D7661',
+      },
+      chevronIconColor: '#47776C',
+    },
+  },
+  dropdown: {
+    ...theme.dropdown,
+    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    borderColor: 'rgba(18, 82, 70, 0.18)',
+    shadow: '0 14px 36px rgba(18, 82, 70, 0.12)',
+    item: {
+      ...theme.dropdown.item,
+      backgroundColor: {
+        default: 'rgba(255, 255, 255, 0.54)',
+        hover: 'rgba(209, 238, 226, 0.72)',
+      },
+    },
+  },
+  table: {
+    ...theme.table,
+    actionBar: {
+      backgroundColor: 'rgba(255, 255, 255, 0.62)',
+    },
+    th: {
+      ...theme.table.th,
+      backgroundColor: {
+        normal: 'rgba(255, 255, 255, 0.56)',
+      },
+    },
+    td: {
+      ...theme.table.td,
+      borderTop: 'rgba(18, 82, 70, 0.14)',
+    },
+    tr: {
+      backgroundColor: {
+        normal: 'rgba(255, 255, 255, 0.48)',
+        hover: 'rgba(219, 243, 233, 0.72)',
+      },
+    },
+  },
+  select: {
+    ...theme.select,
+    backgroundColor: {
+      normal: 'rgba(255, 255, 255, 0.58)',
+      hover: 'rgba(255, 255, 255, 0.78)',
+      active: 'rgba(220, 241, 233, 0.82)',
+    },
+    borderColor: {
+      ...theme.select.borderColor,
+      normal: 'rgba(18, 82, 70, 0.22)',
+    },
+  },
+  input: {
+    ...theme.input,
+    backgroundColor: {
+      normal: 'rgba(255, 255, 255, 0.58)',
+      readOnly: 'rgba(255, 255, 255, 0.38)',
+      disabled: 'rgba(255, 255, 255, 0.32)',
+    },
+  },
+  modal: {
+    ...theme.modal,
+    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    border: {
+      top: 'rgba(18, 82, 70, 0.14)',
+      bottom: 'rgba(18, 82, 70, 0.14)',
+      contrast: 'rgba(18, 82, 70, 0.26)',
+    },
+    shadow: '0 18px 48px rgba(18, 82, 70, 0.16)',
+  },
+  confirmModal: {
+    backgroundColor: 'rgba(255, 255, 255, 0.84)',
   },
 };
