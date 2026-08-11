@@ -13,14 +13,16 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "baseUrl": "src",
+    "paths": {
+      "*": ["./src/*"]
+    },
     "noFallthroughCasesInSwitch": true,
-    "types": ["vite/client","@testing-library/jest-dom"]
+    "types": ["vite/client", "@testing-library/jest-dom", "jest", "node"]
   },
   "include": [
     "src",
