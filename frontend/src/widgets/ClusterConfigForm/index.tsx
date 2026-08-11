@@ -1,7 +1,6 @@
 import React from 'react';
 import { Button } from 'components/common/Button/Button';
 import { useForm, FormProvider } from 'react-hook-form';
-import { yupResolver } from '@hookform/resolvers/yup';
 import formSchema from 'widgets/ClusterConfigForm/schema';
 import { FlexFieldset, StyledForm } from 'components/common/Form/Form.styled';
 import {
@@ -25,6 +24,7 @@ import Authentication from 'widgets/ClusterConfigForm/Sections/Authentication/Au
 import KSQL from 'widgets/ClusterConfigForm/Sections/KSQL';
 import Masking from 'widgets/ClusterConfigForm/Sections/Masking';
 import { useConfirm } from 'lib/hooks/useConfirm';
+import { typedYupResolver } from 'lib/typedYupResolver';
 
 interface ClusterConfigFormProps {
   hasCustomConfig?: boolean;
@@ -42,7 +42,7 @@ const ClusterConfigForm: React.FC<ClusterConfigFormProps> = ({
   const navigate = useNavigate();
   const methods = useForm<ClusterConfigFormValues>({
     mode: 'all',
-    resolver: yupResolver(formSchema),
+    resolver: typedYupResolver<ClusterConfigFormValues>(formSchema),
     defaultValues: {
       ...CLUSTER_CONFIG_FORM_DEFAULT_VALUES,
       ...initialValues,
