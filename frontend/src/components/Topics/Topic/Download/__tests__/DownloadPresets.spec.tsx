@@ -5,6 +5,7 @@ import { render } from 'lib/testHelpers';
 import DownloadPresets, {
   DownloadConfig,
 } from 'components/Topics/Topic/Download/DownloadPresets';
+import { LOCAL_STORAGE_KEY_PREFIX } from 'lib/constants';
 
 const config: DownloadConfig = {
   partitionMode: 'ALL',
@@ -77,7 +78,7 @@ describe('DownloadPresets', () => {
     const onApply = jest.fn();
     const { searchFilters: ignoredSearchFilters, ...legacyConfig } = config;
     localStorage.setItem(
-      'kafbat-ui-download-presets',
+      `${LOCAL_STORAGE_KEY_PREFIX}-download-presets`,
       JSON.stringify([
         {
           name: 'legacy',

@@ -82,7 +82,7 @@ flowchart LR
 - A green `main` run creates `mykafka-v0.1.<workflow-run>`.
 - The application version and GitHub release tag are identical, so the UI can accurately identify the latest release.
 - The release asset is named `mykafka-ui-v0.1.<workflow-run>.jar`.
-- Release notes include the exact non-merge commits since the previous `mykafka-v*` tag. The first MyKafka UI release includes the historical commit log.
+- Release notes include the exact non-merge commits since the previous `mykafka-v*` tag, falling back to the last compatible `custom-v*` release for the first MyKafka UI release.
 - Workflow artifacts are retained for 30 days in addition to the GitHub Release asset.
 - The manual **MyKafka UI: Build Release JAR** workflow remains available for an artifact-only build or an explicitly named release.
 

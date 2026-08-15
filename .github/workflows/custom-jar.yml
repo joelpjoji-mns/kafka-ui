@@ -77,7 +77,7 @@ jobs:
           ASSET_NAME: ${{ steps.meta.outputs.asset_name }}
         shell: bash
         run: |
-          previous_tag="$(git tag --merged "$GITHUB_SHA" --list 'mykafka-v*' --sort=-creatordate | grep -vx "$RELEASE_TAG" | head -n 1 || true)"
+          previous_tag="$(git tag --merged "$GITHUB_SHA" --sort=-creatordate | grep -E '^(mykafka-v|custom-v)' | grep -vx "$RELEASE_TAG" | head -n 1 || true)"
 
           cat > release-notes.md <<EOF
           # MyKafka UI $RELEASE_TAG

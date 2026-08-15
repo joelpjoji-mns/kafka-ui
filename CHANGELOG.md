@@ -4,7 +4,7 @@ All notable MyKafka UI changes are documented in Git history and published as re
 
 ## Automated Release Notes
 
-Every successful commit to `main` creates a `mykafka-v0.1.<run>` GitHub Release. Its changelog contains every non-merge commit since the previous MyKafka release tag, and the release attaches the matching `mykafka-ui-v0.1.<run>.jar`.
+Every successful commit to `main` creates a `mykafka-v0.1.<run>` GitHub Release. Its changelog contains every non-merge commit since the previous MyKafka release tag, falling back to the preceding `custom-v*` tag for the first MyKafka release, and the release attaches the matching `mykafka-ui-v0.1.<run>.jar`.
 
 This file describes the release policy and the durable product milestones. The GitHub Release page is the authoritative per-build changelog because it is generated from the exact commit range that produced the JAR.
 
@@ -30,4 +30,4 @@ This file describes the release policy and the durable product milestones. The G
 
 ## Historical Context
 
-The first automated MyKafka UI release will include the repository's complete historical non-merge commit log because no prior `mykafka-v*` tag exists. Subsequent releases will contain only the commits introduced after the preceding release.
+The first automated MyKafka UI release starts after the last compatible `custom-v*` tag. Subsequent releases contain only commits introduced after the preceding `mykafka-v*` tag.
