@@ -26,6 +26,7 @@ describe('NavBar', () => {
     const header = screen.getByLabelText('Page Header');
     expect(header).toBeInTheDocument();
     expect(within(header).getByText('Custom Kafka UI')).toBeInTheDocument();
+    expect(within(header).getByText('Custom Kafka')).toBeInTheDocument();
     expect(within(header).getByText('UserInfo')).toBeInTheDocument();
   });
 

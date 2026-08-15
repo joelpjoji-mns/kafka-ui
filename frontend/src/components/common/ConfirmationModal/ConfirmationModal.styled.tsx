@@ -26,7 +26,7 @@ export const Overlay = styled.div(
 );
 
 export const Modal = styled.div(
-  ({ theme: { modal, confirmModal } }) => css`
+  ({ theme: { confirmModal, effects } }) => css`
     position: absolute;
     display: flex;
     flex-direction: column;
@@ -34,7 +34,19 @@ export const Modal = styled.div(
     border-radius: 8px;
 
     background-color: ${confirmModal.backgroundColor};
-    filter: drop-shadow(0px 4px 16px ${modal.shadow});
+    box-shadow: ${effects.transientShadow};
+    backdrop-filter: ${effects.transientBackdropFilter};
+    -webkit-backdrop-filter: ${effects.transientBackdropFilter};
+
+    @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
   `
 );
 

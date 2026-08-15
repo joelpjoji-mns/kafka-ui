@@ -39,6 +39,18 @@ export const Select = styled.ul<Props>`
   box-sizing: border-box;
   padding-left: 16px;
   padding-right: 12px;
+  background-color: ${({ theme, isThemeMode }) =>
+    isThemeMode && theme.effects.navigationBackdropFilter !== 'none'
+      ? theme.effects.navigationSurface
+      : 'transparent'};
+  backdrop-filter: ${({ theme, isThemeMode }) =>
+    isThemeMode ? theme.effects.navigationBackdropFilter : 'none'};
+  -webkit-backdrop-filter: ${({ theme, isThemeMode }) =>
+    isThemeMode ? theme.effects.navigationBackdropFilter : 'none'};
+  box-shadow: ${({ theme, isThemeMode }) =>
+    isThemeMode && theme.effects.navigationBackdropFilter !== 'none'
+      ? theme.effects.navigationShadow
+      : 'none'};
   color: ${({ theme, disabled }) =>
     disabled ? theme.select.color.disabled : theme.select.color.normal};
   min-width: ${({ minWidth }) => minWidth || 'auto'};
@@ -78,6 +90,13 @@ export const OptionList = styled.ul`
   max-height: 228px;
   margin-top: 4px;
   background-color: ${({ theme }) => theme.select.backgroundColor.normal};
+  backdrop-filter: ${({ theme }) => theme.effects.transientBackdropFilter};
+  -webkit-backdrop-filter: ${({ theme }) =>
+    theme.effects.transientBackdropFilter};
+  box-shadow: ${({ theme }) =>
+    theme.effects.transientBackdropFilter === 'none'
+      ? 'none'
+      : theme.effects.transientShadow};
   border: 1px ${({ theme }) => theme.select.optionList.borderColor} solid;
   border-radius: 4px;
   font-size: 14px;
@@ -105,6 +124,16 @@ export const OptionList = styled.ul`
 
   &::-webkit-scrollbar:horizontal {
     height: 7px;
+  }
+
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {

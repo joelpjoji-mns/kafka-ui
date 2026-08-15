@@ -17,7 +17,7 @@ export const ModalContent = styled.div<{
   maxWidth: string;
   maxHeight: string;
 }>(
-  ({ theme: { modal }, maxWidth, maxHeight }) => css`
+  ({ theme: { modal, effects }, maxWidth, maxHeight }) => css`
     background-color: ${modal.backgroundColor};
     color: ${modal.color};
     border-radius: 8px;
@@ -27,7 +27,19 @@ export const ModalContent = styled.div<{
     overflow: auto;
     position: relative;
     border: 1px solid ${modal.border.contrast};
-    box-shadow: 0 4px 20px ${modal.shadow};
+    box-shadow: ${effects.transientShadow};
+    backdrop-filter: ${effects.transientBackdropFilter};
+    -webkit-backdrop-filter: ${effects.transientBackdropFilter};
+
+    @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
   `
 );
 

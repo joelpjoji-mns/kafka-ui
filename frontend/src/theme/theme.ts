@@ -225,8 +225,13 @@ const baseTheme = {
   },
   effects: {
     appBackground: Colors.brand[0],
-    surfaceBackdropFilter: 'none',
-    surfaceShadow: 'none',
+    navigationSurface: Colors.brand[0],
+    navigationBorder: Colors.neutral[10],
+    navigationBackdropFilter: 'none',
+    navigationShadow: 'none',
+    transientBackdropFilter: 'none',
+    transientShadow: '0 4px 16px rgba(0, 0, 0, 0.1)',
+    reducedTransparencyNavigationSurface: Colors.brand[0],
   },
   alert: {
     color: {
@@ -1532,6 +1537,13 @@ export const darkTheme: ThemeType = {
     stuffBorderColor: Colors.neutral[75],
     socialLink: Colors.neutral[30],
   },
+  effects: {
+    ...baseTheme.effects,
+    appBackground: Colors.brand[90],
+    navigationSurface: Colors.brand[90],
+    navigationBorder: Colors.neutral[75],
+    reducedTransparencyNavigationSurface: Colors.brand[90],
+  },
   icons: {
     ...baseTheme.icons,
     editIcon: {
@@ -1858,9 +1870,11 @@ export const amoledTheme: ThemeType = {
     socialLink: '#A3A3A3',
   },
   effects: {
+    ...darkTheme.effects,
     appBackground: '#000000',
-    surfaceBackdropFilter: 'none',
-    surfaceShadow: 'none',
+    navigationSurface: '#000000',
+    navigationBorder: '#292929',
+    reducedTransparencyNavigationSurface: '#000000',
   },
   menu: {
     ...darkTheme.menu,
@@ -1939,7 +1953,7 @@ export const glassTheme: ThemeType = {
   },
   default: {
     ...theme.default,
-    backgroundColor: 'rgba(255, 255, 255, 0.68)',
+    backgroundColor: '#F9FCFB',
   },
   link: {
     color: '#0D7661',
@@ -1953,16 +1967,21 @@ export const glassTheme: ThemeType = {
   },
   layout: {
     ...theme.layout,
-    mainBackgroundColor: 'transparent',
-    stuffColor: 'rgba(255, 255, 255, 0.46)',
-    stuffBorderColor: 'rgba(18, 82, 70, 0.18)',
+    mainBackgroundColor: '#F9FCFB',
+    stuffColor: '#EDF5F1',
+    stuffBorderColor: '#C8DAD3',
     socialLink: '#47776C',
   },
   effects: {
     appBackground:
-      'linear-gradient(135deg, #D8F0E4 0%, #DCEFF0 46%, #F6E7CF 100%)',
-    surfaceBackdropFilter: 'blur(18px) saturate(130%)',
-    surfaceShadow: '0 14px 36px rgba(18, 82, 70, 0.12)',
+      'linear-gradient(135deg, #DAF1E6 0%, #E1EFF3 46%, #F7ECD9 100%)',
+    navigationSurface: 'rgba(248, 253, 251, 0.72)',
+    navigationBorder: 'rgba(255, 255, 255, 0.76)',
+    navigationBackdropFilter: 'blur(20px) saturate(135%)',
+    navigationShadow: '0 12px 32px rgba(15, 82, 70, 0.12)',
+    transientBackdropFilter: 'blur(16px) saturate(125%)',
+    transientShadow: '0 14px 36px rgba(15, 82, 70, 0.16)',
+    reducedTransparencyNavigationSurface: '#F6FBF8',
   },
   menu: {
     ...theme.menu,
@@ -1981,70 +2000,52 @@ export const glassTheme: ThemeType = {
   },
   dropdown: {
     ...theme.dropdown,
-    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    backgroundColor: 'rgba(249, 252, 251, 0.94)',
     borderColor: 'rgba(18, 82, 70, 0.18)',
-    shadow: '0 14px 36px rgba(18, 82, 70, 0.12)',
+    shadow: 'rgba(18, 82, 70, 0.16)',
     item: {
       ...theme.dropdown.item,
       backgroundColor: {
-        default: 'rgba(255, 255, 255, 0.54)',
-        hover: 'rgba(209, 238, 226, 0.72)',
+        default: 'transparent',
+        hover: 'rgba(205, 233, 222, 0.72)',
       },
     },
   },
-  table: {
-    ...theme.table,
-    actionBar: {
-      backgroundColor: 'rgba(255, 255, 255, 0.62)',
-    },
-    th: {
-      ...theme.table.th,
+  button: {
+    ...theme.button,
+    secondary: {
+      ...theme.button.secondary,
       backgroundColor: {
-        normal: 'rgba(255, 255, 255, 0.56)',
-      },
-    },
-    td: {
-      ...theme.table.td,
-      borderTop: 'rgba(18, 82, 70, 0.14)',
-    },
-    tr: {
-      backgroundColor: {
-        normal: 'rgba(255, 255, 255, 0.48)',
-        hover: 'rgba(219, 243, 233, 0.72)',
+        normal: 'rgba(249, 252, 251, 0.74)',
+        hover: 'rgba(255, 255, 255, 0.94)',
+        active: 'rgba(218, 241, 231, 0.94)',
+        disabled: 'rgba(249, 252, 251, 0.52)',
       },
     },
   },
   select: {
     ...theme.select,
     backgroundColor: {
-      normal: 'rgba(255, 255, 255, 0.58)',
-      hover: 'rgba(255, 255, 255, 0.78)',
-      active: 'rgba(220, 241, 233, 0.82)',
+      normal: 'rgba(249, 252, 251, 0.94)',
+      hover: 'rgba(255, 255, 255, 0.98)',
+      active: 'rgba(218, 241, 231, 0.94)',
     },
     borderColor: {
       ...theme.select.borderColor,
       normal: 'rgba(18, 82, 70, 0.22)',
     },
   },
-  input: {
-    ...theme.input,
-    backgroundColor: {
-      normal: 'rgba(255, 255, 255, 0.58)',
-      readOnly: 'rgba(255, 255, 255, 0.38)',
-      disabled: 'rgba(255, 255, 255, 0.32)',
-    },
-  },
   modal: {
     ...theme.modal,
-    backgroundColor: 'rgba(255, 255, 255, 0.82)',
+    backgroundColor: 'rgba(249, 252, 251, 0.96)',
     border: {
       top: 'rgba(18, 82, 70, 0.14)',
       bottom: 'rgba(18, 82, 70, 0.14)',
       contrast: 'rgba(18, 82, 70, 0.26)',
     },
-    shadow: '0 18px 48px rgba(18, 82, 70, 0.16)',
+    shadow: 'rgba(18, 82, 70, 0.16)',
   },
   confirmModal: {
-    backgroundColor: 'rgba(255, 255, 255, 0.84)',
+    backgroundColor: 'rgba(249, 252, 251, 0.98)',
   },
 };

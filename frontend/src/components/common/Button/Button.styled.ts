@@ -17,6 +17,24 @@ const StyledButton = styled.button<ButtonProps>`
 
   background: ${({ buttonType, theme }) =>
     theme.button[buttonType].backgroundColor.normal};
+  backdrop-filter: ${({ buttonType, theme }) =>
+    buttonType === 'secondary' ? theme.effects.transientBackdropFilter : 'none'};
+  -webkit-backdrop-filter: ${({ buttonType, theme }) =>
+    buttonType === 'secondary' ? theme.effects.transientBackdropFilter : 'none'};
+  box-shadow: ${({ buttonType, theme }) =>
+    buttonType === 'secondary' && theme.effects.transientBackdropFilter !== 'none'
+      ? theme.effects.transientShadow
+      : 'none'};
+
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 
   color: ${({ buttonType, theme }) => theme.button[buttonType].color.normal};
   height: ${({ theme, buttonSize }) => theme.button.height[buttonSize]};

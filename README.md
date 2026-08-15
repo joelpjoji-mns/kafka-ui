@@ -28,7 +28,7 @@ Custom Kafka UI is a personal, independently maintained fork of Kafbat UI for in
 | Audit Explorer | Cursor-paginated audit trail with date, resource, operation, outcome, and target filters. |
 | Record Explorer | Cross-topic search through a bounded recent sample, with topic filtering, result coverage, offsets, partitions, timestamps, and payload sizing. |
 | Restricted clusters | Optional metadata access failures are handled as non-fatal where possible, so usable topic workflows remain available under limited admin permissions. |
-| Themes | Auto, Light, Dark, Midnight, Harbor, Ember, AMOLED, and Glass modes. AMOLED uses true-black core surfaces; Glass adds translucent surfaces and backdrop blur. |
+| Themes | Auto, Light, Dark, Midnight, Harbor, Ember, AMOLED, and Glass modes. AMOLED uses true-black core surfaces; Glass uses material navigation and transient controls while keeping operational content opaque, with reduced-transparency and increased-contrast fallbacks. |
 
 ## Standard Kafka workflows
 

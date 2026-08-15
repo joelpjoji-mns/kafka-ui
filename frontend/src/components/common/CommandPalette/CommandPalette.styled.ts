@@ -21,7 +21,20 @@ export const Panel = styled.div`
   border: 1px solid ${({ theme }) => theme.modal.border.contrast};
   background-color: ${({ theme }) => theme.modal.backgroundColor};
   color: ${({ theme }) => theme.default.color.normal};
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: ${({ theme }) => theme.effects.transientShadow};
+  backdrop-filter: ${({ theme }) => theme.effects.transientBackdropFilter};
+  -webkit-backdrop-filter: ${({ theme }) =>
+    theme.effects.transientBackdropFilter};
+
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 `;
 
 export const SearchInput = styled.input`

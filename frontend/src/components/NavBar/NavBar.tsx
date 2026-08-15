@@ -81,7 +81,10 @@ const NavBar: React.FC<Props> = ({ onBurgerClick }) => {
 
           <S.Hyperlink to="/">
             <Logo />
-            Custom Kafka UI
+            <S.BrandName>
+              <span className="full">Custom Kafka UI</span>
+              <span className="compact">Custom Kafka</span>
+            </S.BrandName>
           </S.Hyperlink>
 
           <S.NavbarItem>
@@ -90,7 +93,9 @@ const NavBar: React.FC<Props> = ({ onBurgerClick }) => {
         </S.NavbarBrand>
       </S.NavbarBrand>
       <S.NavbarSocial>
-        <UserTimezone />
+        <S.TimezoneItem>
+          <UserTimezone />
+        </S.TimezoneItem>
 
         <Select
           aria-label="Theme selection"

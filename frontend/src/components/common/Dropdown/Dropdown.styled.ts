@@ -16,16 +16,18 @@ const menuHide = keyframes`
 `;
 
 export const Dropdown = styled(ControlledMenu)(
-  ({ theme: { dropdown } }) => css`
+  ({ theme: { dropdown, effects } }) => css`
     // container for the menu items
 
     ${menuSelector.name} {
       border: 1px solid ${dropdown.borderColor};
-      box-shadow: 0 4px 16px ${dropdown.shadow};
+      box-shadow: ${effects.transientShadow};
       padding: 8px 4px;
       border-radius: 4px;
       font-size: 14px;
       background-color: ${dropdown.backgroundColor};
+      backdrop-filter: ${effects.transientBackdropFilter};
+      -webkit-backdrop-filter: ${effects.transientBackdropFilter};
       text-align: left;
       cursor: auto;
     }
@@ -55,6 +57,20 @@ export const Dropdown = styled(ControlledMenu)(
     ${menuItemSelector.disabled} {
       cursor: not-allowed;
       opacity: 0.5;
+    }
+
+    @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+      ${menuSelector.name} {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
+    }
+
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      ${menuSelector.name} {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
     }
   `
 );

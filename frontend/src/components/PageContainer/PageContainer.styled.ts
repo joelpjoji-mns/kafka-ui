@@ -30,7 +30,7 @@ export const Sidebar = styled.div<{ $visible: boolean }>(
     width: ${theme.layout.navBarWidth};
     display: flex;
     flex-direction: column;
-    border-right: 1px solid ${theme.layout.stuffBorderColor};
+    border-right: 1px solid ${theme.effects.navigationBorder};
     position: fixed;
     top: ${theme.layout.navBarHeight};
     left: 0;
@@ -44,11 +44,23 @@ export const Sidebar = styled.div<{ $visible: boolean }>(
       opacity 0.25s,
       transform 0.25s,
       -webkit-transform 0.25s;
-    background: ${theme.default.backgroundColor};
-    backdrop-filter: ${theme.effects.surfaceBackdropFilter};
-    -webkit-backdrop-filter: ${theme.effects.surfaceBackdropFilter};
-    box-shadow: ${theme.effects.surfaceShadow};
+    background: ${theme.effects.navigationSurface};
+    backdrop-filter: ${theme.effects.navigationBackdropFilter};
+    -webkit-backdrop-filter: ${theme.effects.navigationBackdropFilter};
+    box-shadow: ${theme.effects.navigationShadow};
     transform: ${$visible ? 'translateX(0)' : 'translateX(-100%)'};
+
+    @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+      background-color: ${theme.effects.reducedTransparencyNavigationSurface};
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+
+    @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+      background-color: ${theme.effects.reducedTransparencyNavigationSurface};
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
 
     @media screen and (max-width: 1024px) {
       ${$visible &&
