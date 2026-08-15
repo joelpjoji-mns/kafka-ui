@@ -60,7 +60,7 @@ export const PER_PAGE = 25;
 export const MESSAGES_PER_PAGE = '500';
 export const MAX_MESSAGES_PER_PAGE = 5_000;
 
-export const GIT_REPO_LINK = 'https://github.com/joelpjoji-mns/kafka-ui';
+export const GIT_REPO_LINK = 'https://github.com/joelpjoji-mns/Mykafka-Ui';
 
 export const LOCAL_STORAGE_KEY_PREFIX = 'kafbat-ui';
 

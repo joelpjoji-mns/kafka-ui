@@ -12,7 +12,7 @@ describe('PageHeading', () => {
   it('sets the browser title from heading content by default', () => {
     render(<PageHeading text="Topics" title="local" />);
 
-    expect(document.title).toBe('Topics | local | Custom Kafka UI');
+    expect(document.title).toBe('Topics | local | MyKafka UI');
   });
 
   it('uses an explicit browser title override when provided', () => {
@@ -20,10 +20,10 @@ describe('PageHeading', () => {
       <PageHeading
         text="orders"
         title="local"
-        documentTitle="Messages | orders | local | Custom Kafka UI"
+        documentTitle="Messages | orders | local | MyKafka UI"
       />
     );
 
-    expect(document.title).toBe('Messages | orders | local | Custom Kafka UI');
+    expect(document.title).toBe('Messages | orders | local | MyKafka UI');
   });
 });

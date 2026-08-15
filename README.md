@@ -1,12 +1,12 @@
-# Custom Kafka UI
+# MyKafka UI
 
-[GitHub repository](https://github.com/joelpjoji-mns/kafka-ui) | [Apache-2.0 license](LICENSE)
+[GitHub repository](https://github.com/joelpjoji-mns/Mykafka-Ui) | [Apache-2.0 license](LICENSE)
 
-Custom Kafka UI is a personal, independently maintained fork of Kafbat UI for inspecting and operating Apache Kafka clusters. It keeps the upstream Kafka management foundation and adds focused developer, operations, message-transfer, and safety workflows.
+MyKafka UI is a personal, independently maintained fork of Kafbat UI for inspecting and operating Apache Kafka clusters. It keeps the upstream Kafka management foundation and adds focused developer, operations, message-transfer, and safety workflows.
 
 ## Fork status
 
-- This is the active fork repository: [joelpjoji-mns/kafka-ui](https://github.com/joelpjoji-mns/kafka-ui).
+- This is the active fork repository: [joelpjoji-mns/Mykafka-Ui](https://github.com/joelpjoji-mns/Mykafka-Ui).
 - The fork is not affiliated with, endorsed by, or released by the upstream Kafbat organization.
 - Upstream-only Docker publishing, AWS/ECR environments, Helm publication, Maven Central publication, Codecov, Discord, and external release automation are intentionally not part of this repository.
 - The application uses its original bat-inspired fork mark. It does not include the official Batman logo or other DC artwork.
@@ -14,7 +14,7 @@ Custom Kafka UI is a personal, independently maintained fork of Kafbat UI for in
 
 ## Custom capabilities
 
-| Area | Custom Kafka UI behavior |
+| Area | MyKafka UI behavior |
 | --- | --- |
 | Live message tail | Live mode loads a bounded recent snapshot first, then tails new records from a fixed Kafka end-offset checkpoint. This avoids a history-to-live gap and puts fresh messages at the top. |
 | Message browsing | Multiple text refinements, smart filters, serde-aware decoding, timestamp ranges with From/To controls, offset and timestamp seek modes, and a larger configurable message window. |
@@ -32,7 +32,7 @@ Custom Kafka UI is a personal, independently maintained fork of Kafbat UI for in
 
 ## Standard Kafka workflows
 
-Custom Kafka UI retains the core upstream experience for:
+MyKafka UI retains the core upstream experience for:
 
 - Multi-cluster Kafka administration, topics, partitions, replication, configs, and brokers.
 - Message inspection and production with configured serdes.
@@ -43,15 +43,15 @@ Custom Kafka UI retains the core upstream experience for:
 
 ## Run a release JAR
 
-Release artifacts are produced by the **Custom Kafka UI: Build Release JAR** workflow in [.github/workflows/custom-jar.yml](.github/workflows/custom-jar.yml).
+Release artifacts are produced by the **MyKafka UI: Build Release JAR** workflow in [.github/workflows/custom-jar.yml](.github/workflows/custom-jar.yml).
 
-- Run the workflow without `release_tag` to receive a 30-day Actions artifact named `custom-kafka-ui-<run_number>.jar`.
-- Run it with a `custom-v*` tag, such as `custom-v2026.08.15-1`, to create or update a GitHub Release with the same JAR asset.
+- Run the workflow without `release_tag` to receive a 30-day Actions artifact named `mykafka-ui-<run_number>.jar`.
+- Run it with a `mykafka-v*` tag, such as `mykafka-v2026.08.15-1`, to create or update a GitHub Release with the same JAR asset. Legacy `custom-v*` tags remain supported.
 
 Run a downloaded artifact with your Kafka UI configuration:
 
 ```bash
-java -jar custom-kafka-ui-<run_number>.jar \
+java -jar mykafka-ui-<run_number>.jar \
   --spring.config.additional-location=path/to/kafka-ui-config.yaml
 ```
 
@@ -71,9 +71,9 @@ Build a runnable JAR with the frontend embedded:
 ```bash
 ./gradlew :api:bootJar --no-daemon \
   -Pinclude-frontend=true \
-  -Pversion=custom-local
+  -Pversion=mykafka-local
 
-java -jar api/build/libs/api-custom-local.jar \
+java -jar api/build/libs/api-mykafka-local.jar \
   --spring.config.additional-location=path/to/kafka-ui-config.yaml
 ```
 
@@ -110,8 +110,8 @@ The application keeps the upstream configuration model.
 
 | Workflow | Trigger | What it verifies or produces |
 | --- | --- | --- |
-| **Custom Kafka UI: CI** | Push, pull request, manual run | Backend tests, frontend compile/lint/unit tests, then a frontend-embedded application JAR. |
-| **Custom Kafka UI: Build Release JAR** | Manual run or `custom-v*` tag | Uploads a downloadable JAR artifact; creates or updates a GitHub Release when a tag is supplied. |
+| **MyKafka UI: CI** | Push, pull request, manual run | Backend tests, frontend compile/lint/unit tests, then a frontend-embedded application JAR. |
+| **MyKafka UI: Build Release JAR** | Manual run or `mykafka-v*` tag | Uploads a downloadable JAR artifact; creates or updates a GitHub Release when a tag is supplied. Legacy `custom-v*` tags remain supported. |
 
 The CI workflow uses no personal cloud, registry, analytics, or publication secrets. Release publication uses GitHub's built-in token only.
 
@@ -127,4 +127,4 @@ The CI workflow uses no personal cloud, registry, analytics, or publication secr
 
 ## Attribution and license
 
-Custom Kafka UI is derived from the upstream [Kafbat UI](https://github.com/kafbat/kafka-ui) project and is distributed under the [Apache License 2.0](LICENSE). Fork-specific behavior is maintained in this repository.
+MyKafka UI is derived from the upstream [Kafbat UI](https://github.com/kafbat/kafka-ui) project and is distributed under the [Apache License 2.0](LICENSE). Fork-specific behavior is maintained in this repository.

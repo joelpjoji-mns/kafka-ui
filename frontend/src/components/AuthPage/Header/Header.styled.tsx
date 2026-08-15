@@ -31,3 +31,18 @@ export const StyledPath = styled.path(
     fill: ${theme.auth_page.header.LogoTextColor};
   `
 );
+
+export const StyledCover = styled.rect(
+  ({ theme }) => css`
+    fill: ${theme.auth_page.header.LogoBgColor};
+  `
+);
+
+export const StyledText = styled.text(
+  ({ theme }) => css`
+    fill: ${theme.auth_page.header.LogoTextColor};
+    font-family: Inter, sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+  `
+);

@@ -1,6 +1,6 @@
 openapi: 3.0.0
 info:
-  title: Custom Kafka UI API
+  title: MyKafka UI API
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
@@ -7171,5 +7171,5 @@ components:
             $ref: '#/components/schemas/Action'
 servers:
   - url: http://localhost:8080
-    description: Default endpoint for Custom Kafka UI API
+    description: Default endpoint for MyKafka UI API
     variables: {}

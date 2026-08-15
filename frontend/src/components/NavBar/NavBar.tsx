@@ -82,8 +82,8 @@ const NavBar: React.FC<Props> = ({ onBurgerClick }) => {
           <S.Hyperlink to="/">
             <Logo />
             <S.BrandName>
-              <span className="full">Custom Kafka UI</span>
-              <span className="compact">Custom Kafka</span>
+              <span className="full">MyKafka UI</span>
+              <span className="compact">MyKafka</span>
             </S.BrandName>
           </S.Hyperlink>
 
@@ -108,7 +108,7 @@ const NavBar: React.FC<Props> = ({ onBurgerClick }) => {
           href={GIT_REPO_LINK}
           target="_blank"
           rel="noreferrer"
-          aria-label="Custom Kafka UI on GitHub"
+          aria-label="MyKafka UI on GitHub"
         >
           <GitHubIcon />
         </S.SocialLink>

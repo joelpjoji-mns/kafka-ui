@@ -20,7 +20,7 @@ import {
   kafkaConnectTriageRelativePath,
 } from 'lib/paths';
 
-const APP_NAME = 'Custom Kafka UI';
+const APP_NAME = 'MyKafka UI';
 
 export const buildPageTitle = (...parts: Array<string | undefined | null>) =>
   [...parts.filter((part): part is string => !!part?.trim()), APP_NAME].join(

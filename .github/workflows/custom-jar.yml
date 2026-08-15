@@ -1,14 +1,15 @@
-name: "Custom Kafka UI: Build Release JAR"
+name: "MyKafka UI: Build Release JAR"
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Optional release tag, for example custom-v2026.05.01-1. Leave empty for an Actions artifact only."
+        description: "Optional release tag, for example mykafka-v2026.05.01-1. Legacy custom-v tags remain supported. Leave empty for an Actions artifact only."
         required: false
         type: string
   push:
     tags:
+      - "mykafka-v*"
       - "custom-v*"
 
 permissions:
@@ -20,7 +21,7 @@ concurrency:
 
 jobs:
   build-release-jar:
-    name: Build downloadable Custom Kafka UI JAR
+    name: Build downloadable MyKafka UI JAR
     runs-on: ubuntu-latest
 
     steps:
@@ -44,12 +45,15 @@ jobs:
           fi
 
           if [[ -n "$release_tag" ]]; then
-            version="${release_tag#custom-v}"
+            version="${release_tag#mykafka-v}"
+            if [[ "$version" == "$release_tag" ]]; then
+              version="${release_tag#custom-v}"
+            fi
           else
-            version="custom-${GITHUB_SHA::7}"
+            version="mykafka-${GITHUB_SHA::7}"
           fi
 
-          asset_name="custom-kafka-ui-${GITHUB_RUN_NUMBER}.jar"
+          asset_name="mykafka-ui-${GITHUB_RUN_NUMBER}.jar"
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
@@ -69,7 +73,7 @@ jobs:
       - name: Upload JAR artifact
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # https://github.com/actions/upload-artifact/releases/tag/v4
         with:
-          name: custom-kafka-ui-${{ github.run_number }}
+          name: mykafka-ui-${{ github.run_number }}
           path: dist/${{ steps.meta.outputs.asset_name }}
           retention-days: 30
 
@@ -82,7 +86,7 @@ jobs:
         shell: bash
         run: |
           cat > release-notes.md <<EOF
-          Custom Kafka UI release JAR.
+          MyKafka UI release JAR.
 
           Built from commit: $GITHUB_SHA
           Source ref: $GITHUB_REF_NAME
@@ -105,7 +109,7 @@ jobs:
             gh release create "$RELEASE_TAG" "dist/$ASSET_NAME" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "Custom Kafka UI $RELEASE_TAG" \
+              --title "MyKafka UI $RELEASE_TAG" \
               --notes-file release-notes.md
           fi
 

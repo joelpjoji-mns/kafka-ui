@@ -26,11 +26,11 @@ using TypeSpec.OpenAPI;
 using Http;
 using Rest;
 
-@service(#{ title: "Custom Kafka UI API" })
+@service(#{ title: "MyKafka UI API" })
 @info(#{
   license: #{ name: "Apache 2.0", url: "https://www.apache.org/licenses/LICENSE-2.0.html" },
   version: "0.2.0"
 })
-@server("http://localhost:8080", "Default endpoint for Custom Kafka UI API")
+@server("http://localhost:8080", "Default endpoint for MyKafka UI API")
 namespace Api;
 

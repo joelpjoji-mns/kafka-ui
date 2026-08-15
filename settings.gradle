@@ -5,7 +5,7 @@ pluginManagement {
     }
 }
 
-rootProject.name = "custom-kafka-ui"
+rootProject.name = "mykafka-ui"
 include "contract"
 include "contract-typespec"
 include "serde-api"

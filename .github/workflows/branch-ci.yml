@@ -1,4 +1,4 @@
-name: "Custom Kafka UI: CI"
+name: "MyKafka UI: CI"
 
 on:
   workflow_dispatch:
