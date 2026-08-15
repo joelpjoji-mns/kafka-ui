@@ -80,10 +80,14 @@ jobs:
     name: Package application JAR
     needs: [backend-tests, frontend-tests]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
         uses: actions/checkout@1e31de5234b9f8995739874a8ce0492dc87873e2 # https://github.com/actions/checkout/releases/tag/v4.0.0
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK
         uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # https://github.com/actions/setup-java/releases/tag/v4
@@ -92,11 +96,85 @@ jobs:
           distribution: 'zulu'
           cache: 'gradle'
 
+      - name: Resolve build metadata
+        id: meta
+        shell: bash
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+            version="mykafka-v0.1.${GITHUB_RUN_NUMBER}"
+            release_tag="$version"
+          else
+            version="mykafka-ci-${GITHUB_SHA::7}"
+            release_tag=""
+          fi
+
+          asset_name="mykafka-ui-${version#mykafka-}.jar"
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "asset_name=$asset_name" >> "$GITHUB_OUTPUT"
+
       - name: Package JAR with frontend
         shell: bash
         run: |
-          version="ci-${GITHUB_SHA::7}"
           ./gradlew :api:bootJar --no-daemon \
             -Pinclude-frontend=true \
-            -Pversion="$version"
-          test -f "api/build/libs/api-$version.jar"
+            -Pversion=${{ steps.meta.outputs.version }}
+          mkdir -p dist
+          cp "api/build/libs/api-${{ steps.meta.outputs.version }}.jar" \
+            "dist/${{ steps.meta.outputs.asset_name }}"
+
+      - name: Upload packaged JAR
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # https://github.com/actions/upload-artifact/releases/tag/v4
+        with:
+          name: mykafka-ui-${{ steps.meta.outputs.version }}
+          path: dist/${{ steps.meta.outputs.asset_name }}
+          retention-days: 30
+
+      - name: Publish MyKafka UI release
+        if: ${{ steps.meta.outputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+          ASSET_NAME: ${{ steps.meta.outputs.asset_name }}
+        shell: bash
+        run: |
+          previous_tag="$(git tag --merged "$GITHUB_SHA" --list 'mykafka-v*' --sort=-creatordate | grep -vx "$RELEASE_TAG" | head -n 1 || true)"
+
+          {
+            echo "# MyKafka UI $RELEASE_TAG"
+            echo
+            echo "Automated release from a successful main branch build."
+            echo
+            echo "## Build"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Workflow run: \`$GITHUB_RUN_NUMBER\`"
+            echo "- JAR: \`$ASSET_NAME\`"
+            echo
+            echo "## Changelog"
+            if [[ -n "$previous_tag" ]]; then
+              echo "Changes since \`$previous_tag\`:"
+              echo
+              git log --no-merges --format='- %s (%h)' "$previous_tag..$GITHUB_SHA"
+            else
+              echo "Initial MyKafka UI release."
+              echo
+              git log --no-merges --format='- %s (%h)' "$GITHUB_SHA"
+            fi
+          } > release-notes.md
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "dist/$ASSET_NAME" \
+              --clobber \
+              --repo "$GITHUB_REPOSITORY"
+            gh release edit "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "MyKafka UI $RELEASE_TAG" \
+              --notes-file release-notes.md
+          else
+            gh release create "$RELEASE_TAG" "dist/$ASSET_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "MyKafka UI $RELEASE_TAG" \
+              --notes-file release-notes.md
+          fi
