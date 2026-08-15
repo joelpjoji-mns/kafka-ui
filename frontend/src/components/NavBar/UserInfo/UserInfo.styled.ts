@@ -17,4 +17,8 @@ export const Text = styled.div`
   &:hover {
     color: ${({ theme }) => theme.user.hoverColor};
   }
+
+  @media screen and (max-width: ${({ theme }) => theme.breakpoints.S}px) {
+    display: none;
+  }
 `;
