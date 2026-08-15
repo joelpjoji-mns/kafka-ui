@@ -25,10 +25,10 @@ springdoc:
     enabled: ${SWAGGER_UI_ENABLED:false}
   swagger-ui:
     enabled: ${SWAGGER_UI_ENABLED:false}
-    url: /openapi/kafbat-ui-api.yaml
+    url: /openapi/mykafka-ui-api.yaml
     urls:
-      - name: kafbat-ui
-        url: /openapi/kafbat-ui-api.yaml
+      - name: mykafka-ui
+        url: /openapi/mykafka-ui-api.yaml
     config-url: null
   override-with-generic-response: true
 

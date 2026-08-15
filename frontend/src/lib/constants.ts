@@ -62,7 +62,7 @@ export const MAX_MESSAGES_PER_PAGE = 5_000;
 
 export const GIT_REPO_LINK = 'https://github.com/joelpjoji-mns/Mykafka-Ui';
 
-export const LOCAL_STORAGE_KEY_PREFIX = 'kafbat-ui';
+export const LOCAL_STORAGE_KEY_PREFIX = 'mykafka-ui';
 
 export enum AsyncRequestStatus {
   initial = 'initial',
