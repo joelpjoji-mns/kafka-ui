@@ -142,7 +142,7 @@ Use `pnpm dev` for a Vite development server. Set `VITE_DEV_PROXY` in `frontend/
 | Need | Setting |
 | --- | --- |
 | Dynamic cluster configuration | `DYNAMIC_CONFIG_ENABLED=true` |
-| Swagger UI | `SWAGGER_UI_ENABLED=true` |
+| Swagger UI | Set `SWAGGER_UI_ENABLED=true`, then open `/swagger-ui/index.html` |
 | Dynamic config path | `/etc/kafkaui/dynamic_config.yaml` |
 | Health endpoints | `/actuator/health` and `/actuator/info` |
 | Compose examples | [documentation/compose](documentation/compose) |
