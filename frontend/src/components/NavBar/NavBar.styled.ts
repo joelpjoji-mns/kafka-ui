@@ -21,12 +21,6 @@ export const Navbar = styled.nav(
 
     @media screen and (max-width: ${theme.breakpoints.S}px) {
       justify-content: flex-start;
-      overflow-x: auto;
-      scrollbar-width: none;
-
-      &::-webkit-scrollbar {
-        display: none;
-      }
     }
 
     @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
