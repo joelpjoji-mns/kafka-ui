@@ -1,9 +1,11 @@
 package io.kafbat.ui.service;
 
 import static io.kafbat.ui.api.model.ControllerType.KRAFT;
+import static io.kafbat.ui.api.model.ControllerType.UNKNOWN;
 import static io.kafbat.ui.api.model.ControllerType.ZOOKEEPER;
 import static io.kafbat.ui.service.ReactiveAdminClient.ClusterDescription;
 
+import io.kafbat.ui.api.model.ControllerType;
 import io.kafbat.ui.config.ClustersProperties;
 import io.kafbat.ui.mapper.QuorumInfoMapper;
 import io.kafbat.ui.model.ClusterFeature;
@@ -41,6 +43,8 @@ public class StatisticsService {
     return getStatistics(c).doOnSuccess(m -> cache.replace(c, m));
   }
 
+  private record LoadQuorumInfoResult(Optional<QuorumInfo> quorumInfo, ControllerType controllerType) {}
+
   private Mono<Statistics> getStatistics(KafkaCluster cluster) {
     return adminClientService.get(cluster).flatMap(ac ->
         ac.describeCluster()
@@ -52,7 +56,9 @@ public class StatisticsService {
                             loadClusterState(description, ac),
                             loadKafkaConnects(cluster),
                             loadQuorumInfo(ac)
-                        ).flatMap(t ->
+                                .map(quorumInfo -> new LoadQuorumInfoResult(Optional.of(quorumInfo), KRAFT))
+                                .onErrorResume(StatisticsService::handleQuorumInfoErrors)))
+                        .flatMap(t ->
                             scrapeMetrics(cluster, t.getT2(), description)
                                 .map(metrics -> createStats(description,
                                     t.getT1(),
@@ -66,18 +72,26 @@ public class StatisticsService {
             ).doOnError(e ->
                 log.error("Failed to collect cluster {} info", cluster.getName(), e)
             ).doOnError(e -> adminClientService.invalidate(cluster, e))
-            .onErrorResume(t -> Mono.just(Statistics.statsUpdateError(t))));
+            .onErrorResume(t -> Mono.just(Statistics.statsUpdateError(t)));
+  }
+
+  private static Mono<LoadQuorumInfoResult> handleQuorumInfoErrors(Throwable quorumInfoFetchError) {
+    if (quorumInfoFetchError instanceof UnsupportedVersionException) {
+      return Mono.just(new LoadQuorumInfoResult(Optional.empty(), ZOOKEEPER));
+    } else if (quorumInfoFetchError instanceof ClusterAuthorizationException) {
+      final String message = "Failed to fetch quorum info due to ClusterAuthorizationException."
+          + " In some managed Kafka offerings (e.g. Confluent Cloud), "
+          + "it is prohibited to fetch the quorum information from a cluster, regardless of your role configuration."
+          + " In that case, this error is expected behavior.";
+      log.warn(message, quorumInfoFetchError);
+      return Mono.just(new LoadQuorumInfoResult(Optional.empty(), UNKNOWN));
+    }
+    return Mono.error(quorumInfoFetchError);
   }
 
   @NotNull
-  private static Mono<Optional<QuorumInfo>> loadQuorumInfo(ReactiveAdminClient ac) {
-    return ac.describeMetadataQuorum()
-        .map(Optional::of)
-        .onErrorResume(t ->
-            t instanceof UnsupportedVersionException || t instanceof ClusterAuthorizationException
-                ? Mono.just(Optional.empty())
-                : Mono.error(t)
-        );
+  private static Mono<QuorumInfo> loadQuorumInfo(ReactiveAdminClient ac) {
+    return ac.describeMetadataQuorum();
   }
 
   private Statistics createStats(ClusterDescription description,
@@ -85,7 +99,7 @@ public class StatisticsService {
                                  ScrapedClusterState scrapedClusterState,
                                  List<KafkaConnectState> connects,
                                  Metrics metrics,
-                                 Optional<QuorumInfo> quorumInfo,
+                                 LoadQuorumInfoResult loadQuorumInfoResult,
                                  ReactiveAdminClient ac) {
     var stats = Statistics.builder()
         .status(ServerStatusDTO.ONLINE)
@@ -99,9 +113,9 @@ public class StatisticsService {
                 Collectors.toMap(KafkaConnectState::getName, c -> c)
             )
         )
-        .controller(quorumInfo.isPresent() ? KRAFT : ZOOKEEPER);
+        .controller(loadQuorumInfoResult.controllerType);
 
-    quorumInfo.ifPresent(i -> stats.quorumInfo(quorumInfoMapper.toInternalQuorumInfo(i)));
+    loadQuorumInfoResult.quorumInfo.ifPresent(info -> stats.quorumInfo(quorumInfoMapper.toInternalQuorumInfo(info)));
 
     return stats.build();
   }

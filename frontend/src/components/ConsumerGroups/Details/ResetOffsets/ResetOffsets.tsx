@@ -4,6 +4,7 @@ import {
   ClusterGroupParam,
   ConsumerGroupBackReference,
 } from 'lib/paths';
+import { buildPageTitle } from 'lib/pageTitles';
 import 'react-datepicker/dist/react-datepicker.css';
 import { useLocation } from 'react-router-dom';
 import useAppParams from 'lib/hooks/useAppParams';
@@ -51,6 +52,11 @@ const ResetOffsets: React.FC = () => {
           clusterConsumerGroupsPath(routerParams.clusterName)
         }
         backText={backReference?.goBackText ?? 'Consumers'}
+        documentTitle={buildPageTitle(
+          'Reset Offsets',
+          consumerGroupID,
+          routerParams.clusterName
+        )}
       />
       <Form
         defaultValues={defaultValues}

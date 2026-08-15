@@ -1,5 +1,11 @@
 import React, { Suspense } from 'react';
-import { NavLink, Route, Routes, useNavigate } from 'react-router-dom';
+import {
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import {
   clusterTopicAclsRelativePath,
   clusterTopicConnectorsRelativePath,
@@ -13,6 +19,7 @@ import {
   clusterTopicUploadRelativePath,
   RouteParamsClusterTopic,
 } from 'lib/paths';
+import { getTopicPageTitle } from 'lib/pageTitles';
 import ClusterContext from 'components/contexts/ClusterContext';
 import {
   ActionButton,
@@ -65,6 +72,7 @@ const Topic: React.FC = () => {
   const { messageData, setMessage, clearMessage } = useProduceMessage();
 
   const { clusterName, topicName } = useAppParams<RouteParamsClusterTopic>();
+  const { pathname } = useLocation();
 
   const openSidebarWithMessage = (message: TopicMessage) => {
     setMessage(message);
@@ -107,6 +115,7 @@ const Topic: React.FC = () => {
         text={topicName}
         backText="Topics"
         backTo={clusterTopicsPath(clusterName)}
+        documentTitle={getTopicPageTitle(pathname, clusterName, topicName)}
       >
         <ActionButton
           buttonSize="M"
