@@ -44,3 +44,8 @@ tasks.register('buildFrontend', PnpmTask) {
     "VITE_COMMIT": "git rev-parse --short HEAD".execute().text.trim()
   ]
 }
+
+tasks.register('devFrontend', PnpmTask) {
+  dependsOn pnpmInstall
+  args = ['dev']
+}

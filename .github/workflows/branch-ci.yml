@@ -109,10 +109,12 @@ jobs:
           fi
 
           asset_name="mykafka-ui-${version#mykafka-}.jar"
+          display_version="${version#mykafka-}"
 
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
           echo "asset_name=$asset_name" >> "$GITHUB_OUTPUT"
+          echo "display_version=$display_version" >> "$GITHUB_OUTPUT"
 
       - name: Package JAR with frontend
         shell: bash
@@ -137,12 +139,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
           ASSET_NAME: ${{ steps.meta.outputs.asset_name }}
+          DISPLAY_VERSION: ${{ steps.meta.outputs.display_version }}
         shell: bash
         run: |
           previous_tag="$(git tag --merged "$GITHUB_SHA" --sort=-creatordate | grep -E '^(mykafka-v|custom-v)' | grep -vx "$RELEASE_TAG" | head -n 1 || true)"
 
           {
-            echo "# MyKafka UI $RELEASE_TAG"
+            echo "# MyKafka UI - $DISPLAY_VERSION"
             echo
             echo "Automated release from a successful main branch build."
             echo
@@ -169,12 +172,12 @@ jobs:
               --repo "$GITHUB_REPOSITORY"
             gh release edit "$RELEASE_TAG" \
               --repo "$GITHUB_REPOSITORY" \
-              --title "MyKafka UI $RELEASE_TAG" \
+              --title "MyKafka UI - $DISPLAY_VERSION" \
               --notes-file release-notes.md
           else
             gh release create "$RELEASE_TAG" "dist/$ASSET_NAME" \
               --repo "$GITHUB_REPOSITORY" \
               --target "$GITHUB_SHA" \
-              --title "MyKafka UI $RELEASE_TAG" \
+              --title "MyKafka UI - $DISPLAY_VERSION" \
               --notes-file release-notes.md
           fi

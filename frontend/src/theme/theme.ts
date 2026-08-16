@@ -1846,6 +1846,9 @@ export const emberTheme: ThemeType = {
 
 export const amoledTheme: ThemeType = {
   ...darkTheme,
+  logo: {
+    color: '#FFFFFF',
+  },
   auth_page: {
     ...darkTheme.auth_page,
     backgroundColor: '#000000',

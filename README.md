@@ -135,7 +135,13 @@ pnpm eslint --quiet --ext .tsx,.ts src/
 pnpm test:CI
 ```
 
-Use `pnpm dev` for a Vite development server. Set `VITE_DEV_PROXY` in `frontend/.env.local` when the frontend should proxy requests to a separately running API.
+Use the managed Node 22 development server so the local checker matches CI:
+
+```bash
+./gradlew :frontend:devFrontend
+```
+
+Set `VITE_DEV_PROXY` in `frontend/.env.local` when the frontend should proxy requests to a separately running API.
 
 ## Configuration At A Glance
 
