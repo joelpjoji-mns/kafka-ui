@@ -86,8 +86,8 @@ public class MessagesService {
   private static final int DEFAULT_PAGE_SIZE = 500;
   private static final int DEFAULT_UPLOAD_MESSAGE_LIMIT = 1_000;
   private static final int MAX_UPLOAD_MESSAGE_LIMIT = 10_000;
-  private static final int MAX_PRODUCER_REQUEST_BYTES = Integer.MAX_VALUE;
-  private static final long MAX_PRODUCER_BUFFER_BYTES = Integer.MAX_VALUE;
+  private static final int MAX_PRODUCER_REQUEST_BYTES = 16 * 1024 * 1024;
+  private static final long MAX_PRODUCER_BUFFER_BYTES = 64L * 1024 * 1024;
 
   // limiting UI messages rate to 20/sec in tailing mode
   private static final int TAILING_UI_MESSAGE_THROTTLE_RATE = 20;

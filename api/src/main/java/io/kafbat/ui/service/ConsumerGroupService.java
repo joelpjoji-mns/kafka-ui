@@ -2,6 +2,7 @@ package io.kafbat.ui.service;
 
 import static io.kafbat.ui.util.ConsumerGroupUtil.calculateLag;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Streams;
 import com.google.common.collect.Table;
 import io.kafbat.ui.config.ClustersProperties;
@@ -72,8 +73,10 @@ public class ConsumerGroupService {
                               .map(
                                   desc -> {
                                     var groupOffsets = committedOffsets.row(desc.groupId());
-                                    var endOffsetsForGroup = new HashMap<>(endOffsets);
-                                    endOffsetsForGroup.keySet().retainAll(groupOffsets.keySet());
+                                                                        var endOffsetsForGroup = endOffsetsForGroup(
+                                                                                groupOffsets,
+                                                                                endOffsets
+                                                                        );
                                     // 3. gathering description & offsets
                                     return InternalConsumerGroup.create(
                                         desc, groupOffsets, endOffsetsForGroup);
@@ -81,6 +84,20 @@ public class ConsumerGroupService {
                               .collect(Collectors.toList()));
             });
   }
+
+    @VisibleForTesting
+    static Map<TopicPartition, Long> endOffsetsForGroup(
+            Map<TopicPartition, Long> groupOffsets,
+            Map<TopicPartition, Long> endOffsets) {
+        var result = new HashMap<TopicPartition, Long>();
+        groupOffsets.keySet().forEach(topicPartition -> {
+            Long endOffset = endOffsets.get(topicPartition);
+            if (endOffset != null) {
+                result.put(topicPartition, endOffset);
+            }
+        });
+        return result;
+    }
 
   private Mono<List<InternalConsumerGroup>> getConsumerGroups(
       KafkaCluster cluster, ReactiveAdminClient ac, List<ConsumerGroupDescription> descriptions) {

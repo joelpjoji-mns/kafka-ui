@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { startTransition, useCallback, useRef } from 'react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import {
   BASE_PARAMS,
@@ -30,6 +30,30 @@ interface UseTopicMessagesProps {
 }
 
 const EMPTY_STRING_FILTERS: string[] = [];
+const MAX_LIVE_MESSAGES = Number(MESSAGES_PER_PAGE);
+
+type PendingMessage = {
+  message: TopicMessage;
+  shouldPrepend: boolean;
+};
+
+const scheduleMessageFlush = (callback: FrameRequestCallback) => {
+  if (typeof window !== 'undefined' && window.requestAnimationFrame) {
+    return window.requestAnimationFrame(callback);
+  }
+  return globalThis.setTimeout(
+    () => callback(Date.now()),
+    0
+  ) as unknown as number;
+};
+
+const cancelMessageFlush = (frameId: number) => {
+  if (typeof window !== 'undefined' && window.cancelAnimationFrame) {
+    window.cancelAnimationFrame(frameId);
+    return;
+  }
+  globalThis.clearTimeout(frameId);
+};
 
 interface DownloadMessagesZipProps {
   clusterName: ClusterName;
@@ -132,27 +156,82 @@ export const useTopicMessages = ({
   const [isFetching, setIsFetching] = React.useState(false);
   const [isLiveStreamReady, setIsLiveStreamReady] = React.useState(false);
   const liveStreamReadyRef = useRef(false);
-  const abortController = useRef(new AbortController());
+  const abortController = useRef<AbortController | undefined>(undefined);
+  const pendingMessages = useRef<PendingMessage[]>([]);
+  const scheduledMessageFlush = useRef<number | undefined>(undefined);
   const prevCursor = useRef(0);
   const prevRequestKey = useRef('');
 
   // get initial properties
 
-  const abortFetchData = useCallback(() => {
-    if (abortController.current.signal.aborted) return;
-
-    setIsFetching(false);
-    abortController.current.abort();
-    abortController.current = new AbortController();
+  const clearPendingMessages = useCallback(() => {
+    if (scheduledMessageFlush.current !== undefined) {
+      cancelMessageFlush(scheduledMessageFlush.current);
+      scheduledMessageFlush.current = undefined;
+    }
+    pendingMessages.current = [];
   }, []);
 
+  const abortFetchData = useCallback(() => {
+    const controller = abortController.current;
+    if (!controller || controller.signal.aborted) return;
+
+    clearPendingMessages();
+    setIsFetching(false);
+    controller.abort();
+  }, [clearPendingMessages]);
+
   React.useEffect(() => {
+    clearPendingMessages();
+    const controller = new AbortController();
+    abortController.current?.abort();
+    abortController.current = controller;
+
+    const isCurrentRequest = () =>
+      abortController.current === controller && !controller.signal.aborted;
+
     const mode =
       convertStrToPollingMode(
         searchParams.get(MessagesFilterKeys.mode) || ''
       ) || PollingMode.TAILING;
     setIsLiveStreamReady(false);
     liveStreamReadyRef.current = false;
+
+    const flushPendingMessages = () => {
+      scheduledMessageFlush.current = undefined;
+      if (!isCurrentRequest()) {
+        pendingMessages.current = [];
+        return;
+      }
+
+      const messagesToFlush = pendingMessages.current;
+      pendingMessages.current = [];
+      if (messagesToFlush.length === 0) return;
+
+      startTransition(() => {
+        setMessages((previousMessages) => {
+          const nextMessages = [...previousMessages];
+          messagesToFlush.forEach(({ message, shouldPrepend }) => {
+            if (shouldPrepend) {
+              nextMessages.unshift(message);
+            } else {
+              nextMessages.push(message);
+            }
+          });
+          return mode === PollingMode.TAILING
+            ? nextMessages.slice(0, MAX_LIVE_MESSAGES)
+            : nextMessages;
+        });
+      });
+    };
+
+    const queueMessage = (message: TopicMessage, shouldPrepend: boolean) => {
+      pendingMessages.current.push({ message, shouldPrepend });
+      if (scheduledMessageFlush.current === undefined) {
+        scheduledMessageFlush.current =
+          scheduleMessageFlush(flushPendingMessages);
+      }
+    };
 
     const timestampToRaw = searchParams.get(MessagesFilterKeys.timestampTo);
 
@@ -230,77 +309,94 @@ export const useTopicMessages = ({
       prevRequestKey.current = requestKey;
       prevCursor.current = currentCursor;
 
-      await fetchEventSource(`${url}?${requestParams.toString()}`, {
-        method: 'GET',
-        signal: abortController.current.signal,
-        openWhenHidden: true,
-        async onopen(response) {
-          const { ok, status } = response;
-          if (ok && status === 200) {
-            // Reset list of messages.
-            setMessages([]);
-          } else if (status >= 400 && status < 500 && status !== 429) {
-            showServerError(response);
-          }
-        },
-        onmessage(event) {
-          const parsedData: TopicMessageEvent = JSON.parse(event.data);
-          const { message, consuming, cursor } = parsedData;
+      try {
+        await fetchEventSource(`${url}?${requestParams.toString()}`, {
+          method: 'GET',
+          signal: controller.signal,
+          openWhenHidden: true,
+          async onopen(response) {
+            const { ok, status } = response;
+            if (ok && status === 200 && isCurrentRequest()) {
+              // Reset list of messages.
+              clearPendingMessages();
+              setMessages([]);
+            } else if (status >= 400 && status < 500 && status !== 429) {
+              showServerError(response);
+            }
+          },
+          onmessage(event) {
+            if (!isCurrentRequest()) return;
 
-          if (useMessageFiltersStore.getState().nextCursor !== cursor?.id) {
-            setNextCursor(cursor?.id || undefined);
-          }
+            const parsedData: TopicMessageEvent = JSON.parse(event.data);
+            const { message, consuming, cursor } = parsedData;
 
-          switch (parsedData.type) {
-            case TopicMessageEventTypeEnum.MESSAGE:
-              if (message) {
-                const shouldPrependLiveMessage =
-                  mode === PollingMode.TAILING && liveStreamReadyRef.current;
-                setMessages((prevMessages) => {
-                  if (shouldPrependLiveMessage) {
-                    return [message, ...prevMessages];
-                  }
-                  return [...prevMessages, message];
-                });
-              }
-              break;
-            case TopicMessageEventTypeEnum.PHASE:
-              if (parsedData.phase?.name) {
-                setPhase(parsedData.phase.name);
-                if (mode === PollingMode.TAILING && parsedData.phase.name === 'Live polling') {
-                  liveStreamReadyRef.current = true;
-                  setIsLiveStreamReady(true);
+            if (useMessageFiltersStore.getState().nextCursor !== cursor?.id) {
+              setNextCursor(cursor?.id || undefined);
+            }
+
+            switch (parsedData.type) {
+              case TopicMessageEventTypeEnum.MESSAGE:
+                if (message) {
+                  const shouldPrependLiveMessage =
+                    mode === PollingMode.TAILING && liveStreamReadyRef.current;
+                  queueMessage(message, shouldPrependLiveMessage);
                 }
-              }
-              break;
-            case TopicMessageEventTypeEnum.CONSUMING:
-              if (consuming) setConsumptionStats(consuming);
-              break;
-            default:
-          }
-        },
-        onclose() {
-          setIsFetching(false);
-          abortController.current = new AbortController();
-        },
-        onerror(err) {
-          setNextCursor(undefined);
-          setIsFetching(false);
-          /**
-           * abortController.current = new AbortController(); rewrites ref, but fetchEventSource still has old ref
-           * that way we cant stop default retry algorythm and stop retry loop
-           */
-          // abortController.current = new AbortController();
-          showServerError(err);
-        },
-      });
+                break;
+              case TopicMessageEventTypeEnum.PHASE:
+                if (parsedData.phase?.name) {
+                  setPhase(parsedData.phase.name);
+                  if (
+                    mode === PollingMode.TAILING &&
+                    parsedData.phase.name === 'Live polling'
+                  ) {
+                    liveStreamReadyRef.current = true;
+                    setIsLiveStreamReady(true);
+                  }
+                }
+                break;
+              case TopicMessageEventTypeEnum.CONSUMING:
+                if (consuming) setConsumptionStats(consuming);
+                break;
+              default:
+            }
+          },
+          onclose() {
+            if (isCurrentRequest()) {
+              setIsFetching(false);
+            }
+          },
+          onerror(err) {
+            if (!isCurrentRequest()) {
+              throw err;
+            }
+
+            setNextCursor(undefined);
+            setIsFetching(false);
+            showServerError(err);
+            throw err;
+          },
+        });
+      } catch {
+        // onerror has already shown the active request error; aborted requests need no UI update.
+      }
     };
 
-    abortFetchData();
-    fetchData();
+    fetchData().catch(() => undefined);
 
-    return abortFetchData;
-  }, [searchParams, abortFetchData, stringFilters]);
+    return () => {
+      controller.abort();
+      clearPendingMessages();
+      if (abortController.current === controller) {
+        abortController.current = undefined;
+      }
+    };
+  }, [
+    clusterName,
+    clearPendingMessages,
+    searchParams,
+    stringFilters,
+    topicName,
+  ]);
 
   return {
     phase,

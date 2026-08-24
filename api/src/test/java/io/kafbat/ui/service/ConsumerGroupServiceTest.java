@@ -42,6 +42,20 @@ import reactor.util.function.Tuple2;
 
 class ConsumerGroupServiceTest {
 
+    @Test
+    void keepsOnlyEndOffsetsCommittedByTheConsumerGroup() {
+        TopicPartition committedPartition = new TopicPartition("orders", 0);
+        TopicPartition missingEndOffsetPartition = new TopicPartition("orders", 1);
+        TopicPartition unrelatedPartition = new TopicPartition("payments", 0);
+
+        Map<TopicPartition, Long> endOffsets = ConsumerGroupService.endOffsetsForGroup(
+                Map.of(committedPartition, 4L, missingEndOffsetPartition, 2L),
+                Map.of(committedPartition, 10L, unrelatedPartition, 20L)
+        );
+
+        assertThat(endOffsets).containsExactly(Map.entry(committedPartition, 10L));
+    }
+
   @Test
   void getConsumerGroupsForTopicConsumerGroups() {
     // given

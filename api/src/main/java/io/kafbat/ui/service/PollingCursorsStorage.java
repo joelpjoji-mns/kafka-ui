@@ -1,6 +1,7 @@
 package io.kafbat.ui.service;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ticker;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import io.kafbat.ui.emitter.Cursor;
@@ -9,16 +10,29 @@ import io.kafbat.ui.model.TopicMessageDTO;
 import io.kafbat.ui.serdes.ConsumerRecordDeserializer;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import org.apache.commons.lang3.RandomStringUtils;
 
 public class PollingCursorsStorage {
 
   public static final int MAX_SIZE = 10_000;
+  static final int EXPIRE_AFTER_ACCESS_MINUTES = 10;
 
-  private final Cache<String, Cursor> cursorsCache = CacheBuilder.newBuilder()
-      .maximumSize(MAX_SIZE)
-      .build();
+  private final Cache<String, Cursor> cursorsCache;
+
+  public PollingCursorsStorage() {
+    this(Ticker.systemTicker());
+  }
+
+  @VisibleForTesting
+  PollingCursorsStorage(Ticker ticker) {
+    cursorsCache = CacheBuilder.newBuilder()
+        .maximumSize(MAX_SIZE)
+        .expireAfterAccess(EXPIRE_AFTER_ACCESS_MINUTES, TimeUnit.MINUTES)
+        .ticker(ticker)
+        .build();
+  }
 
   public Cursor.Tracking createNewCursor(ConsumerRecordDeserializer deserializer,
                                          ConsumerPosition originalPosition,

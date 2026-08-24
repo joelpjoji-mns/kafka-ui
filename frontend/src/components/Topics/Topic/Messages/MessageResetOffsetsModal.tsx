@@ -78,9 +78,9 @@ const MessageResetOffsetsModal: React.FC<MessageResetOffsetsModalProps> = ({
   const [resetType, setResetType] = React.useState(
     ConsumerGroupOffsetsResetType.OFFSET
   );
-  const [waitForInactive, setWaitForInactive] = React.useState(false);
-  const [resetToTimestamp] = React.useState(
-    () => timestampToMillis(message.timestamp)
+  const [waitForInactive, setWaitForInactive] = React.useState(true);
+  const [resetToTimestamp] = React.useState(() =>
+    timestampToMillis(message.timestamp)
   );
   const resetOffsets = useResetConsumerGroupOffsetsMutation({
     clusterName,

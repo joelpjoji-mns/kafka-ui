@@ -41,7 +41,7 @@ const ResetOffsets: React.FC = () => {
     topic,
     partitionsOffsets: [],
     resetToTimestamp: new Date().getTime(),
-    waitForInactive: false,
+    waitForInactive: true,
   };
 
   return (

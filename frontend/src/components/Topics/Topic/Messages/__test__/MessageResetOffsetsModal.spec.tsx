@@ -124,6 +124,7 @@ describe('MessageResetOffsetsModal', () => {
         resetType: ConsumerGroupOffsetsResetType.OFFSET,
         partitions: [3],
         partitionsOffsets: [{ partition: 3, offset: 42 }],
+        waitForInactive: true,
       });
     });
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -142,6 +143,7 @@ describe('MessageResetOffsetsModal', () => {
         topic: 'orders',
         resetType: ConsumerGroupOffsetsResetType.LATEST,
         partitions: [3],
+        waitForInactive: true,
       });
     });
   });
@@ -151,7 +153,9 @@ describe('MessageResetOffsetsModal', () => {
       ...message,
       timestamp: '2024-01-01T12:00:00.000Z',
     } as unknown as TopicMessage;
-    render(<MessageResetOffsetsModal message={streamedMessage} onClose={onClose} />);
+    render(
+      <MessageResetOffsetsModal message={streamedMessage} onClose={onClose} />
+    );
 
     await selectConsumerGroup('orders-primary');
     await userEvent.click(screen.getByRole('listbox', { name: 'Reset type' }));
@@ -164,19 +168,20 @@ describe('MessageResetOffsetsModal', () => {
         resetType: ConsumerGroupOffsetsResetType.TIMESTAMP,
         partitions: [3],
         resetToTimestamp: Date.parse('2024-01-01T12:00:00.000Z'),
+        waitForInactive: true,
       });
     });
   });
 
-  it('waits for an active consumer group only when explicitly selected', async () => {
+  it('waits for an active consumer group by default and allows opting out', async () => {
     render(<MessageResetOffsetsModal message={message} onClose={onClose} />);
 
     await selectConsumerGroup('orders-primary');
-    await userEvent.click(
-      screen.getByRole('checkbox', {
-        name: /Wait for an active consumer group to become inactive/,
-      })
-    );
+    const waitForInactiveCheckbox = screen.getByRole('checkbox', {
+      name: /Wait for an active consumer group to become inactive/,
+    });
+    expect(waitForInactiveCheckbox).toBeChecked();
+    await userEvent.click(waitForInactiveCheckbox);
     await userEvent.click(screen.getByRole('button', { name: 'Reset offset' }));
 
     await waitFor(() => {
@@ -185,7 +190,6 @@ describe('MessageResetOffsetsModal', () => {
         resetType: ConsumerGroupOffsetsResetType.OFFSET,
         partitions: [3],
         partitionsOffsets: [{ partition: 3, offset: 42 }],
-        waitForInactive: true,
       });
     });
   });

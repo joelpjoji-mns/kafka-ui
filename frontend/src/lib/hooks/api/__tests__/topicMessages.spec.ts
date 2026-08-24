@@ -2,10 +2,11 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { renderQueryHook, TestQueryClientProvider } from 'lib/testHelpers';
 import * as hooks from 'lib/hooks/api/topicMessages';
+import { showServerError } from 'lib/errorHandling';
 import fetchMock from 'fetch-mock';
 import { UseQueryResult, UseSuspenseQueryResult } from '@tanstack/react-query';
 import { SerdeUsage, TopicMessageEventTypeEnum } from 'generated-sources';
-import { MessagesFilterKeys } from 'lib/constants';
+import { MESSAGES_PER_PAGE, MessagesFilterKeys } from 'lib/constants';
 import { MemoryRouter } from 'react-router-dom';
 import { createElement, type PropsWithChildren } from 'react';
 
@@ -114,9 +115,65 @@ describe('Topic Messages hooks', () => {
     unmount();
   });
 
+  it('keeps a refreshed stream cancellable when the previous stream closes', async () => {
+    const { result, rerender, unmount } = renderHook(
+      ({ stringFilters }) =>
+        hooks.useTopicMessages({ clusterName, topicName, stringFilters }),
+      {
+        initialProps: { stringFilters: ['first'] },
+        wrapper: MessagesHookRouter,
+      }
+    );
+
+    await waitFor(() => expect(fetchEventSource).toHaveBeenCalledTimes(1));
+    const firstStreamOptions = (fetchEventSource as jest.Mock).mock.calls[0][1];
+
+    rerender({ stringFilters: ['second'] });
+
+    await waitFor(() => expect(fetchEventSource).toHaveBeenCalledTimes(2));
+    const secondStreamOptions = (fetchEventSource as jest.Mock).mock
+      .calls[1][1];
+    expect(firstStreamOptions.signal.aborted).toBe(true);
+
+    await act(async () => {
+      firstStreamOptions.onclose();
+    });
+    act(() => result.current.abortFetchData());
+
+    expect(secondStreamOptions.signal.aborted).toBe(true);
+    unmount();
+  });
+
+  it('surfaces an active stream error once and stops the retry loop', async () => {
+    const { result, unmount } = renderHook(
+      () => hooks.useTopicMessages({ clusterName, topicName }),
+      { wrapper: MessagesHookRouter }
+    );
+
+    await waitFor(() => expect(fetchEventSource).toHaveBeenCalledTimes(1));
+    const streamOptions = (fetchEventSource as jest.Mock).mock.calls[0][1];
+    const error = new Error('stream disconnected');
+
+    act(() => {
+      expect(() => streamOptions.onerror(error)).toThrow(error);
+    });
+
+    expect(showServerError).toHaveBeenCalledWith(error);
+    await waitFor(() => expect(result.current.isFetching).toBe(false));
+    unmount();
+  });
+
   it('keeps the recent tailing snapshot ordered before prepending live records', async () => {
-    const historicalNewest = { partition: 0, offset: 2, value: 'history-newest' };
-    const historicalOldest = { partition: 0, offset: 1, value: 'history-oldest' };
+    const historicalNewest = {
+      partition: 0,
+      offset: 2,
+      value: 'history-newest',
+    };
+    const historicalOldest = {
+      partition: 0,
+      offset: 1,
+      value: 'history-oldest',
+    };
     const liveMessage = { partition: 0, offset: 3, value: 'live-message' };
     const { result, unmount } = renderHook(
       () => hooks.useTopicMessages({ clusterName, topicName }),
@@ -154,14 +211,110 @@ describe('Topic Messages hooks', () => {
       });
     });
 
-    expect(result.current.messages).toEqual([
-      liveMessage,
-      historicalNewest,
-      historicalOldest,
-    ]);
-    expect(result.current.isLiveStreamReady).toBe(true);
+    await waitFor(() => {
+      expect(result.current.messages).toEqual([
+        liveMessage,
+        historicalNewest,
+        historicalOldest,
+      ]);
+      expect(result.current.isLiveStreamReady).toBe(true);
+    });
 
     unmount();
+  });
+
+  it('retains only the latest live messages', async () => {
+    const { result, unmount } = renderHook(
+      () => hooks.useTopicMessages({ clusterName, topicName }),
+      { wrapper: MessagesHookRouter }
+    );
+
+    await waitFor(() => expect(fetchEventSource).toHaveBeenCalledTimes(1));
+    const options = (fetchEventSource as jest.Mock).mock.calls[0][1];
+    const liveMessageLimit = Number(MESSAGES_PER_PAGE);
+
+    await act(async () => {
+      options.onmessage({
+        data: JSON.stringify({
+          type: TopicMessageEventTypeEnum.PHASE,
+          phase: { name: 'Live polling' },
+        }),
+      });
+      for (let offset = 0; offset <= liveMessageLimit; offset += 1) {
+        options.onmessage({
+          data: JSON.stringify({
+            type: TopicMessageEventTypeEnum.MESSAGE,
+            message: { partition: 0, offset },
+          }),
+        });
+      }
+    });
+
+    await waitFor(() =>
+      expect(result.current.messages).toHaveLength(liveMessageLimit)
+    );
+    expect(result.current.messages[0].offset).toBe(liveMessageLimit);
+    expect(result.current.messages.at(-1)?.offset).toBe(1);
+    unmount();
+  });
+
+  it('clears queued messages when the stream is aborted', async () => {
+    const callbacks = new Map<number, FrameRequestCallback>();
+    const originalRequestAnimationFrame = window.requestAnimationFrame;
+    const originalCancelAnimationFrame = window.cancelAnimationFrame;
+    const requestAnimationFrame = jest.fn((callback: FrameRequestCallback) => {
+      const frameId = callbacks.size + 1;
+      callbacks.set(frameId, callback);
+      return frameId;
+    });
+    const cancelAnimationFrame = jest.fn((frameId: number) => {
+      callbacks.delete(frameId);
+    });
+
+    Object.defineProperty(window, 'requestAnimationFrame', {
+      configurable: true,
+      value: requestAnimationFrame,
+    });
+    Object.defineProperty(window, 'cancelAnimationFrame', {
+      configurable: true,
+      value: cancelAnimationFrame,
+    });
+
+    try {
+      const { result, unmount } = renderHook(
+        () => hooks.useTopicMessages({ clusterName, topicName }),
+        { wrapper: MessagesHookRouter }
+      );
+
+      await waitFor(() => expect(fetchEventSource).toHaveBeenCalledTimes(1));
+      const options = (fetchEventSource as jest.Mock).mock.calls[0][1];
+
+      act(() => {
+        options.onmessage({
+          data: JSON.stringify({
+            type: TopicMessageEventTypeEnum.MESSAGE,
+            message: { partition: 0, offset: 1 },
+          }),
+        });
+        result.current.abortFetchData();
+      });
+
+      callbacks.forEach((callback) => callback(0));
+
+      expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+      expect(cancelAnimationFrame).toHaveBeenCalledWith(1);
+      expect(result.current.messages).toEqual([]);
+      unmount();
+    } finally {
+      Object.defineProperty(window, 'requestAnimationFrame', {
+        configurable: true,
+        value: originalRequestAnimationFrame,
+      });
+      Object.defineProperty(window, 'cancelAnimationFrame', {
+        configurable: true,
+        value: originalCancelAnimationFrame,
+      });
+    }
   });
 
   it('forwards the selected end timestamp to the message stream', async () => {

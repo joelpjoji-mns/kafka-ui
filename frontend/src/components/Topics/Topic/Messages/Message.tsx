@@ -176,4 +176,4 @@ const Message: React.FC<Props> = ({
   );
 };
 
-export default Message;
+export default React.memo(Message);

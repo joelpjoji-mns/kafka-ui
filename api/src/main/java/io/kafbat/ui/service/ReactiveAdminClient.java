@@ -290,6 +290,7 @@ public class ReactiveAdminClient implements Closeable {
     return partitionCalls(
         topicNames,
         properties.getGetTopicsConfigPartitionSize(),
+      properties.getGetTopicsConfigConcurrency(),
         part -> getTopicsConfigImpl(part, includeDocFixed),
         mapMerger()
     );
@@ -359,6 +360,7 @@ public class ReactiveAdminClient implements Closeable {
     return partitionCalls(
         topics,
         properties.getDescribeTopicsPartitionSize(),
+      properties.getDescribeTopicsConcurrency(),
         this::describeTopicsImpl,
         mapMerger()
     );
@@ -809,11 +811,12 @@ public class ReactiveAdminClient implements Closeable {
    * Splits input collection into batches, converts each batch into Mono, subscribes to them (concurrently,
    * with specified concurrency level) and merges output Monos into one Mono.
    */
-  private static <R, I> Mono<R> partitionCalls(Collection<I> items,
-                                               int partitionSize,
-                                               int concurrency,
-                                               Function<Collection<I>, Mono<R>> call,
-                                               BiFunction<R, R, R> merger) {
+  @VisibleForTesting
+  static <R, I> Mono<R> partitionCalls(Collection<I> items,
+                                      int partitionSize,
+                                      int concurrency,
+                                      Function<Collection<I>, Mono<R>> call,
+                                      BiFunction<R, R, R> merger) {
     if (items.isEmpty()) {
       return call.apply(items);
     }

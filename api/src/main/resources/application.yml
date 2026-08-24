@@ -3,10 +3,10 @@ auth:
 
 spring:
   codec:
-    max-in-memory-size: -1
+    max-in-memory-size: ${KAFBAT_UI_CODEC_MAX_IN_MEMORY_SIZE:16MB}
   webflux:
     multipart:
-      max-in-memory-size: -1
+      max-in-memory-size: ${KAFBAT_UI_MULTIPART_MAX_IN_MEMORY_SIZE:10MB}
 
 management:
   endpoint:
