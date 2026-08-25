@@ -44,17 +44,21 @@ public class ApplicationInfoService {
   private final DynamicConfigOperations dynamicConfigOperations;
   private final BuildProperties buildProperties;
   private final GitProperties gitProperties;
+  private final boolean cooperativeOffsetResetEnabled;
 
   public ApplicationInfoService(DynamicConfigOperations dynamicConfigOperations,
                                 ApplicationContext applicationContext,
                                 @Autowired(required = false) BuildProperties buildProperties,
                                 @Autowired(required = false) GitProperties gitProperties,
+                                @Value("${cooperative-offset-reset.enabled:false}")
+                                boolean cooperativeOffsetResetEnabled,
                                 @Value("${" + GITHUB_RELEASE_INFO_ENABLED + ":false}") boolean githubInfoEnabled,
                                 @Value("${" + GITHUB_RELEASE_INFO_TIMEOUT + ":10}") int githubApiMaxWaitTime) {
     this.applicationContext = applicationContext;
     this.dynamicConfigOperations = dynamicConfigOperations;
     this.buildProperties = Optional.ofNullable(buildProperties).orElse(new BuildProperties(new Properties()));
     this.gitProperties = Optional.ofNullable(gitProperties).orElse(new GitProperties(new Properties()));
+    this.cooperativeOffsetResetEnabled = cooperativeOffsetResetEnabled;
     if (githubInfoEnabled) {
       this.githubReleaseInfo = new GithubReleaseInfo(githubApiMaxWaitTime);
     } else {
@@ -101,6 +105,9 @@ public class ApplicationInfoService {
     var enabledFeatures = new ArrayList<EnabledFeaturesEnum>();
     if (dynamicConfigOperations.dynamicConfigEnabled()) {
       enabledFeatures.add(EnabledFeaturesEnum.DYNAMIC_CONFIG);
+    }
+    if (cooperativeOffsetResetEnabled) {
+      enabledFeatures.add(EnabledFeaturesEnum.COOPERATIVE_OFFSET_RESET);
     }
     return enabledFeatures;
   }

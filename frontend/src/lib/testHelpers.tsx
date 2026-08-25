@@ -42,6 +42,7 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
   };
   globalSettings?: {
     hasDynamicConfig: boolean;
+    hasCooperativeOffsetReset?: boolean;
   };
 }
 
@@ -122,7 +123,11 @@ const customRender = (
   const AllTheProviders: FC<PropsWithChildren<unknown>> = ({ children }) => (
     <TestQueryClientProvider>
       <GlobalSettingsContext.Provider
-        value={globalSettings || { hasDynamicConfig: false }}
+        value={{
+          hasDynamicConfig: false,
+          hasCooperativeOffsetReset: false,
+          ...globalSettings,
+        }}
       >
         <ThemeProvider theme={theme}>
           <TestUserInfoProvider data={userInfo}>
@@ -146,8 +151,7 @@ const customRender = (
 
 const customRenderHook = (
   hook: () =>
-    | UseQueryResult<unknown, unknown>
-    | UseSuspenseQueryResult<unknown, unknown>
+    UseQueryResult<unknown, unknown> | UseSuspenseQueryResult<unknown, unknown>
 ) => {
   const SuspenseWrapper: FC<PropsWithChildren<unknown>> = ({ children }) => {
     return (

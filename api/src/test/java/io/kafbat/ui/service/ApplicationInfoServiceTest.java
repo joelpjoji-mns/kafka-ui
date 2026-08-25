@@ -1,8 +1,10 @@
 package io.kafbat.ui.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -52,12 +54,34 @@ class ApplicationInfoServiceTest {
     assertNotNull(appInfo.getEnabledFeatures(), "enabled features must not be NULL");
   }
 
+  @Test
+  void exposesCooperativeOffsetResetOnlyWhenEnabled() {
+    var disabledFeatures = applicationInfoService(false, 10, false)
+        .getApplicationInfo()
+        .getEnabledFeatures();
+    var enabledFeatures = applicationInfoService(false, 10, true)
+        .getApplicationInfo()
+        .getEnabledFeatures();
+
+    assertFalse(disabledFeatures.contains(
+        io.kafbat.ui.model.ApplicationInfoDTO.EnabledFeaturesEnum.COOPERATIVE_OFFSET_RESET));
+    assertTrue(enabledFeatures.contains(
+        io.kafbat.ui.model.ApplicationInfoDTO.EnabledFeaturesEnum.COOPERATIVE_OFFSET_RESET));
+  }
+
   private ApplicationInfoService applicationInfoService(boolean githubInfoEnabled, int githubApiMaxWaitTime) {
+    return applicationInfoService(githubInfoEnabled, githubApiMaxWaitTime, false);
+  }
+
+  private ApplicationInfoService applicationInfoService(boolean githubInfoEnabled,
+                                                        int githubApiMaxWaitTime,
+                                                        boolean cooperativeOffsetResetEnabled) {
     return new ApplicationInfoService(
         dynamicConfigOperations,
         null,
         null,
         null,
+        cooperativeOffsetResetEnabled,
         githubInfoEnabled,
         githubApiMaxWaitTime
     );

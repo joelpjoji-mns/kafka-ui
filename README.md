@@ -42,7 +42,7 @@ flowchart LR
 | --- | --- |
 | **Messages** | Serde-aware browsing, multiple text refinements, smart filters, timestamp windows, offset seeks, resizable columns, key/header/value previews, and live arrivals at the top of the table. |
 | **Live tail** | A bounded historical snapshot first, then a gap-free stream from checkpointed Kafka end offsets. New records arrive above the existing view. |
-| **Consumer safety** | Offset reset impact previews for earliest, latest, timestamp, and explicit offsets. Active groups can wait for a safe inactive state before the mutation occurs. |
+| **Consumer safety** | Offset reset impact previews for earliest, latest, timestamp, and explicit offsets. Active groups can wait for inactivity or use an opt-in [cooperative reset adapter](documentation/COOPERATIVE_OFFSET_RESET.md) to reset while remaining stable. |
 | **Topic transfer** | Download CSV, NDJSON, or ZIP exports with partition/filter/serde controls. Upload one file, many files, or ZIP archives with dry-run previews and routing strategies. |
 | **Developer Hub** | Topic health, topology, storage, configuration, traffic, consumer, and integration signals with concrete next actions. |
 | **Operations Center** | Cluster-wide health, broker state, topic pressure, consumer lag, and integration status in one place. |

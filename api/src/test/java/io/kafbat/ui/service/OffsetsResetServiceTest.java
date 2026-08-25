@@ -1,6 +1,7 @@
 package io.kafbat.ui.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.kafbat.ui.AbstractIntegrationTest;
 import io.kafbat.ui.exception.NotFoundException;
@@ -16,6 +17,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -24,7 +27,11 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.ConsumerGroupState;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.GroupNotEmptyException;
+import org.apache.kafka.common.errors.GroupSubscribedToTopicException;
+import org.apache.kafka.common.errors.UnknownMemberIdException;
 import org.apache.kafka.common.serialization.BytesDeserializer;
 import org.apache.kafka.common.serialization.BytesSerializer;
 import org.apache.kafka.common.utils.Bytes;
@@ -106,6 +113,58 @@ class OffsetsResetServiceTest extends AbstractIntegrationTest {
             .expectErrorMatches(t -> t instanceof ValidationException)
             .verify();
       }
+    }
+  }
+
+  @Test
+  void brokerAndServiceRejectOffsetResetWhileGroupRemainsStable() throws Exception {
+    sendMsgsToPartition(Map.of(0, 10));
+    TopicPartition partition = new TopicPartition(topic, 0);
+
+    try (var consumer = groupConsumer(); var admin = adminClient()) {
+      consumer.subscribe(List.of(topic));
+      waitForStableAssignment(consumer, admin);
+      consumer.commitSync(Map.of(partition, new OffsetAndMetadata(5L)));
+
+      assertThat(groupState(admin)).isEqualTo(ConsumerGroupState.STABLE);
+
+      assertThatThrownBy(() ->
+              admin.alterConsumerGroupOffsets(
+                  groupId,
+                  Map.of(partition, new OffsetAndMetadata(2L))
+              ).all().get())
+          .satisfies(error -> assertThat(error.getCause())
+              .isInstanceOfAny(
+                  GroupNotEmptyException.class,
+                  GroupSubscribedToTopicException.class,
+                  UnknownMemberIdException.class
+              ));
+
+      ReactiveAdminClient reactiveAdminClient = applicationContext
+          .getBean(AdminClientService.class)
+          .get(cluster)
+          .block();
+      StepVerifier.create(reactiveAdminClient.alterConsumerGroupOffsets(
+              groupId,
+              Map.of(partition, 2L)
+          ))
+          .expectErrorSatisfies(error -> assertThat(error)
+              .isInstanceOf(ValidationException.class)
+              .hasMessageContaining("became active"))
+          .verify(Duration.ofSeconds(10));
+
+      StepVerifier.create(
+              offsetsResetService.resetToOffsets(cluster, groupId, topic, Map.of(0, 2L)))
+          .expectErrorSatisfies(error -> assertThat(error)
+              .isInstanceOf(ValidationException.class)
+              .hasMessageContaining("STABLE"))
+          .verify(Duration.ofSeconds(10));
+
+      assertThat(groupState(admin)).isEqualTo(ConsumerGroupState.STABLE);
+      assertThat(admin.listConsumerGroupOffsets(groupId)
+          .partitionsToOffsetAndMetadata()
+          .get())
+          .containsEntry(partition, new OffsetAndMetadata(5L));
     }
   }
 
@@ -271,8 +330,37 @@ class OffsetsResetServiceTest extends AbstractIntegrationTest {
     props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, BytesDeserializer.class);
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, BytesDeserializer.class);
     props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+    props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
     props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
     return new KafkaConsumer<>(props);
+  }
+
+  private AdminClient adminClient() {
+    return AdminClient.create(Map.of(
+        AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG,
+        cluster.getBootstrapServers()
+    ));
+  }
+
+  private void waitForStableAssignment(
+      KafkaConsumer<Bytes, Bytes> consumer,
+      AdminClient adminClient) throws Exception {
+    for (int attempt = 0; attempt < 20; attempt++) {
+      consumer.poll(Duration.ofMillis(250));
+      if (!consumer.assignment().isEmpty()
+          && groupState(adminClient) == ConsumerGroupState.STABLE) {
+        return;
+      }
+    }
+    throw new AssertionError("Consumer group did not become STABLE");
+  }
+
+  private ConsumerGroupState groupState(AdminClient adminClient) throws Exception {
+    return adminClient.describeConsumerGroups(List.of(groupId))
+        .all()
+        .get()
+        .get(groupId)
+        .state();
   }
 
 }

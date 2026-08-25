@@ -14,6 +14,7 @@ tags:
   - name: Acls
   - name: Messages
   - name: Consumer Groups
+  - name: Cooperative Consumer Groups
   - name: Schemas
   - name: Kafka Connect
   - name: Ksql
@@ -1442,6 +1443,36 @@ paths:
           description: 'There is no content to send for this request, but the headers may be useful. '
       tags:
         - Consumer Groups
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConsumerGroupOffsetsReset'
+  /api/clusters/{clusterName}/consumer-groups/{id}/offsets/cooperative:
+    post:
+      operationId: cooperativeResetConsumerGroupOffsets
+      summary: Reset offsets through cooperating active consumers while the group remains stable
+      parameters:
+        - name: clusterName
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CooperativeConsumerGroupOffsetsResetResponse'
+      tags:
+        - Cooperative Consumer Groups
       requestBody:
         required: true
         content:
@@ -3999,6 +4030,7 @@ components:
             type: string
             enum:
               - DYNAMIC_CONFIG
+              - COOPERATIVE_OFFSET_RESET
         build:
           type: object
           properties:
@@ -4966,6 +4998,39 @@ components:
         - ZOOKEEPER
         - KRAFT
         - UNKNOWN
+    CooperativeConsumerGroupOffsetsResetPartition:
+      type: object
+      required:
+        - partition
+        - targetOffset
+        - memberId
+      properties:
+        partition:
+          type: integer
+          format: int32
+        previousOffset:
+          type: integer
+          format: int64
+        targetOffset:
+          type: integer
+          format: int64
+        memberId:
+          type: string
+    CooperativeConsumerGroupOffsetsResetResponse:
+      type: object
+      required:
+        - requestId
+        - groupState
+        - partitions
+      properties:
+        requestId:
+          type: string
+        groupState:
+          $ref: '#/components/schemas/ConsumerGroupState'
+        partitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/CooperativeConsumerGroupOffsetsResetPartition'
     CreateConsumerAcl:
       type: object
       properties:

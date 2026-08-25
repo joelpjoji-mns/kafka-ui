@@ -253,7 +253,8 @@ model ClusterConfigValidation {
 }
 
 alias ApplicationFeature =
-  "DYNAMIC_CONFIG";
+  "DYNAMIC_CONFIG" |
+  "COOPERATIVE_OFFSET_RESET";
 
 enum AuthType {
   DISABLED,

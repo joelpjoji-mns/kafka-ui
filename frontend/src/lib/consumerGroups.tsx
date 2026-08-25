@@ -20,6 +20,31 @@ export type LagTrends = {
   partitionsLagTrends: Record<string, Record<string, LagTrend>>;
 };
 
+const areLagTrendMapsEqual = (
+  first: Record<string, LagTrend>,
+  second: Record<string, LagTrend>
+) => {
+  const firstKeys = Object.keys(first);
+  return (
+    firstKeys.length === Object.keys(second).length &&
+    firstKeys.every((key) => first[key] === second[key])
+  );
+};
+
+export const areLagTrendsEqual = (first: LagTrends, second: LagTrends) =>
+  areLagTrendMapsEqual(first.groupLagTrends, second.groupLagTrends) &&
+  areLagTrendMapsEqual(first.topicsLagTrends, second.topicsLagTrends) &&
+  Object.keys(first.partitionsLagTrends).length ===
+    Object.keys(second.partitionsLagTrends).length &&
+  Object.keys(first.partitionsLagTrends).every(
+    (topicName) =>
+      second.partitionsLagTrends[topicName] !== undefined &&
+      areLagTrendMapsEqual(
+        first.partitionsLagTrends[topicName],
+        second.partitionsLagTrends[topicName]
+      )
+  );
+
 export function computeSingleLagTrend(
   prev: LagValue,
   next: LagValue

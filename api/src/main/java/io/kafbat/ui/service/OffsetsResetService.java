@@ -241,7 +241,7 @@ public class OffsetsResetService {
   private ValidationException activeGroupException(ConsumerGroupState state) {
     return new ValidationException(
         "Group's offsets can be reset only if group is inactive, but group is in %s state"
-            .formatted(state));
+        .formatted(state.name()));
   }
 
   private Map<TopicPartition, Long> editTsOffsets(Map<TopicPartition, Long> foundTsOffsets,

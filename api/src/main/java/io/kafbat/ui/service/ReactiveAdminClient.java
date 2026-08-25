@@ -84,6 +84,7 @@ import org.apache.kafka.common.errors.GroupSubscribedToTopicException;
 import org.apache.kafka.common.errors.InvalidRequestException;
 import org.apache.kafka.common.errors.SecurityDisabledException;
 import org.apache.kafka.common.errors.TopicAuthorizationException;
+import org.apache.kafka.common.errors.UnknownMemberIdException;
 import org.apache.kafka.common.errors.UnknownServerException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.apache.kafka.common.errors.UnsupportedVersionException;
@@ -589,12 +590,16 @@ public class ReactiveAdminClient implements Closeable {
             offsets.entrySet().stream()
                 .collect(toMap(Map.Entry::getKey, e -> new OffsetAndMetadata(e.getValue()))))
         .all())
-        .onErrorResume(GroupNotEmptyException.class,
-            th -> Mono.error(new ValidationException(
-                "Consumer group became active before its offsets could be reset")))
-        .onErrorResume(GroupSubscribedToTopicException.class,
-            th -> Mono.error(new ValidationException(
-                "Consumer group became active before its offsets could be reset")));
+        .onErrorMap(
+            ReactiveAdminClient::isActiveGroupResetError,
+            th -> new ValidationException(
+                "Consumer group became active before its offsets could be reset"));
+  }
+
+  private static boolean isActiveGroupResetError(Throwable error) {
+    return error instanceof GroupNotEmptyException
+        || error instanceof GroupSubscribedToTopicException
+        || error instanceof UnknownMemberIdException;
   }
 
   /**
@@ -635,7 +640,7 @@ public class ReactiveAdminClient implements Closeable {
   private Mono<Collection<TopicPartition>> filterPartitionsWithLeaderCheck(Collection<TopicPartition> partitions,
                                                                            boolean failOnUnknownLeader) {
     var targetTopics = partitions.stream().map(TopicPartition::topic).collect(Collectors.toSet());
-    return describeTopicsImpl(targetTopics)
+    return describeTopics(targetTopics)
         .map(descriptions ->
             filterPartitionsWithLeaderCheck(
                 descriptions.values(), partitions::contains, failOnUnknownLeader));
@@ -695,7 +700,8 @@ public class ReactiveAdminClient implements Closeable {
 
     return partitionCalls(
         partitions,
-        200,
+      properties.getListOffsetsPartitionSize(),
+      properties.getListOffsetsConcurrency(),
         call,
         mapMerger()
     );

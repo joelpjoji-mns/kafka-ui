@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render } from 'lib/testHelpers';
 import MessagesTable, {
@@ -90,6 +90,76 @@ describe('MessagesTable', () => {
       ).toEqual({
         'testCluster:testTopic': { key: 296 },
       });
+    });
+
+    it('throttles pointer resize updates and cancels pending work on unmount', () => {
+      const callbacks = new Map<number, FrameRequestCallback>();
+      const originalRequestAnimationFrame = window.requestAnimationFrame;
+      const originalCancelAnimationFrame = window.cancelAnimationFrame;
+      const requestAnimationFrame = jest.fn(
+        (callback: FrameRequestCallback) => {
+          const frameId = callbacks.size + 1;
+          callbacks.set(frameId, callback);
+          return frameId;
+        }
+      );
+      const cancelAnimationFrame = jest.fn((frameId: number) => {
+        callbacks.delete(frameId);
+      });
+
+      Object.defineProperty(window, 'requestAnimationFrame', {
+        configurable: true,
+        value: requestAnimationFrame,
+      });
+      Object.defineProperty(window, 'cancelAnimationFrame', {
+        configurable: true,
+        value: cancelAnimationFrame,
+      });
+
+      try {
+        cleanup();
+        const { unmount } = renderComponent();
+        const resizeHandle = screen.getByRole('button', {
+          name: 'Resize Key column',
+        });
+
+        fireEvent(
+          resizeHandle,
+          new MouseEvent('pointerdown', { bubbles: true, clientX: 100 })
+        );
+        fireEvent(
+          document,
+          new MouseEvent('pointermove', { bubbles: true, clientX: 120 })
+        );
+        fireEvent(
+          document,
+          new MouseEvent('pointermove', { bubbles: true, clientX: 140 })
+        );
+
+        expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+
+        act(() => callbacks.get(1)?.(0));
+        expect(
+          screen.getByRole('table').querySelectorAll('col')[4]
+        ).toHaveStyle('width: 320px');
+
+        fireEvent(
+          document,
+          new MouseEvent('pointermove', { bubbles: true, clientX: 160 })
+        );
+        unmount();
+
+        expect(cancelAnimationFrame).toHaveBeenCalledWith(2);
+      } finally {
+        Object.defineProperty(window, 'requestAnimationFrame', {
+          configurable: true,
+          value: originalRequestAnimationFrame,
+        });
+        Object.defineProperty(window, 'cancelAnimationFrame', {
+          configurable: true,
+          value: originalCancelAnimationFrame,
+        });
+      }
     });
 
     it('should show preview modal with validation', async () => {

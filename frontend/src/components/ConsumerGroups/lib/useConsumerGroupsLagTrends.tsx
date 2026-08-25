@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import {
   buildNextLagMap,
   buildNextPartitionsLagMap,
+  areLagTrendsEqual,
   computeLagTrends,
   computePartitionsLagTrends,
   LagMap,
@@ -37,6 +38,7 @@ export const useConsumerGroupsLagTrends = ({
     topics: LagMap;
     partitions: PartitionsLagMap;
   }>({ groups: {}, topics: {}, partitions: {} });
+  const prevLagTrendsRef = useRef<LagTrends | undefined>(undefined);
 
   useEffect(() => {
     prevLagRef.current = { groups: {}, topics: {}, partitions: {} };
@@ -70,28 +72,37 @@ export const useConsumerGroupsLagTrends = ({
       isPolling
     );
 
-    if (!includePartitions) {
-      return { ...empty, groupLagTrends };
-    }
+    const nextLagTrends = !includePartitions
+      ? { ...empty, groupLagTrends }
+      : (() => {
+          const topics = groups[groupId]?.topics ?? {};
+          const topicPartitions = groups[groupId]?.topicPartitions ?? {};
 
-    const topics = groups[groupId]?.topics ?? {};
-    const topicPartitions = groups[groupId]?.topicPartitions ?? {};
+          return {
+            groupLagTrends,
+            topicsLagTrends: computeLagTrends(
+              prevLagRef.current.topics,
+              topics,
+              (lag) => lag,
+              isPolling
+            ),
+            partitionsLagTrends: computePartitionsLagTrends(
+              prevLagRef.current.partitions,
+              topicPartitions,
+              isPolling
+            ),
+          };
+        })();
 
-    return {
-      groupLagTrends,
-      topicsLagTrends: computeLagTrends(
-        prevLagRef.current.topics,
-        topics,
-        (lag) => lag,
-        isPolling
-      ),
-      partitionsLagTrends: computePartitionsLagTrends(
-        prevLagRef.current.partitions,
-        topicPartitions,
-        isPolling
-      ),
-    };
+    return prevLagTrendsRef.current &&
+      areLagTrendsEqual(prevLagTrendsRef.current, nextLagTrends)
+      ? prevLagTrendsRef.current
+      : nextLagTrends;
   }, [lagData, pollingIntervalSec, includePartitions, groupId]);
+
+  useEffect(() => {
+    prevLagTrendsRef.current = lagTrends;
+  }, [lagTrends]);
 
   useEffect(() => {
     if (!lagData) return;

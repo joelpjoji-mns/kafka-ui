@@ -15,11 +15,13 @@ import Input from 'components/common/Input/Input';
 import Select, { SelectOption } from 'components/common/Select/Select';
 import { useTopicConsumerGroups } from 'lib/hooks/api/topics';
 import {
+  useCooperativeResetConsumerGroupOffsetsMutation,
   useConsumerGroupOffsetsResetPreview,
   useResetConsumerGroupOffsetsMutation,
 } from 'lib/hooks/api/consumers';
 import useAppParams from 'lib/hooks/useAppParams';
 import { RouteParamsClusterTopic } from 'lib/paths';
+import { GlobalSettingsContext } from 'components/contexts/GlobalSettingsContext';
 
 import * as S from './MessageResetOffsetsModal.styled';
 
@@ -68,6 +70,7 @@ const MessageResetOffsetsModal: React.FC<MessageResetOffsetsModalProps> = ({
   message,
   onClose,
 }) => {
+  const { hasCooperativeOffsetReset } = React.useContext(GlobalSettingsContext);
   const { clusterName, topicName } = useAppParams<RouteParamsClusterTopic>();
   const { data: consumerGroups = [] } = useTopicConsumerGroups({
     clusterName,
@@ -79,6 +82,7 @@ const MessageResetOffsetsModal: React.FC<MessageResetOffsetsModalProps> = ({
     ConsumerGroupOffsetsResetType.OFFSET
   );
   const [waitForInactive, setWaitForInactive] = React.useState(true);
+  const [keepGroupStable, setKeepGroupStable] = React.useState(false);
   const [resetToTimestamp] = React.useState(() =>
     timestampToMillis(message.timestamp)
   );
@@ -86,6 +90,11 @@ const MessageResetOffsetsModal: React.FC<MessageResetOffsetsModalProps> = ({
     clusterName,
     consumerGroupID: consumerGroupId || '',
   });
+  const cooperativeResetOffsets =
+    useCooperativeResetConsumerGroupOffsetsMutation({
+      clusterName,
+      consumerGroupID: consumerGroupId || '',
+    });
 
   const resetPayload = React.useMemo<ConsumerGroupOffsetsReset>(() => {
     const payload: ConsumerGroupOffsetsReset = {
@@ -107,7 +116,7 @@ const MessageResetOffsetsModal: React.FC<MessageResetOffsetsModalProps> = ({
       payload.resetToTimestamp = resetToTimestamp;
     }
 
-    if (waitForInactive) {
+    if (waitForInactive && !keepGroupStable) {
       payload.waitForInactive = true;
     }
 
@@ -119,6 +128,7 @@ const MessageResetOffsetsModal: React.FC<MessageResetOffsetsModalProps> = ({
     resetType,
     topicName,
     waitForInactive,
+    keepGroupStable,
   ]);
 
   const {
@@ -166,7 +176,11 @@ const MessageResetOffsetsModal: React.FC<MessageResetOffsetsModalProps> = ({
   const reset = async () => {
     if (!consumerGroupId) return;
 
-    await resetOffsets.mutateAsync(resetPayload);
+    if (keepGroupStable) {
+      await cooperativeResetOffsets.mutateAsync(resetPayload);
+    } else {
+      await resetOffsets.mutateAsync(resetPayload);
+    }
     onClose();
   };
 
@@ -185,7 +199,9 @@ const MessageResetOffsetsModal: React.FC<MessageResetOffsetsModalProps> = ({
             buttonType="primary"
             buttonSize="M"
             disabled={!consumerGroupId || !partitionPreview || isPreviewLoading}
-            inProgress={resetOffsets.isPending}
+            inProgress={
+              resetOffsets.isPending || cooperativeResetOffsets.isPending
+            }
             onClick={reset}
             permission={{
               resource: ResourceType.CONSUMER,
@@ -193,7 +209,7 @@ const MessageResetOffsetsModal: React.FC<MessageResetOffsetsModalProps> = ({
               value: consumerGroupId,
             }}
           >
-            Reset offset
+            {keepGroupStable ? 'Reset and keep STABLE' : 'Reset offset'}
           </ActionButton>
         </S.Actions>
       }
@@ -241,7 +257,28 @@ const MessageResetOffsetsModal: React.FC<MessageResetOffsetsModalProps> = ({
             minWidth="100%"
           />
         </S.Field>
-        {consumerGroupId && (
+        {consumerGroupId && hasCooperativeOffsetReset && (
+          <S.ActiveGroupOption>
+            <input
+              id="keepGroupStable"
+              type="checkbox"
+              checked={keepGroupStable}
+              onChange={({ target: { checked } }) =>
+                setKeepGroupStable(checked)
+              }
+            />
+            <S.ActiveGroupOptionContent>
+              <S.ActiveGroupOptionTitle>
+                Keep the consumer group STABLE
+              </S.ActiveGroupOptionTitle>
+              <S.ActiveGroupOptionHint>
+                Requires the cooperative reset adapter in every consumer
+                instance.
+              </S.ActiveGroupOptionHint>
+            </S.ActiveGroupOptionContent>
+          </S.ActiveGroupOption>
+        )}
+        {consumerGroupId && !keepGroupStable && (
           <S.ActiveGroupOption>
             <input
               id="waitForInactive"

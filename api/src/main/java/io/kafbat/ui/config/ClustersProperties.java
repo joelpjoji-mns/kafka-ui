@@ -68,6 +68,8 @@ public class ClustersProperties {
     int getTopicsConfigConcurrency = 4;
     int describeTopicsPartitionSize = 200;
     int describeTopicsConcurrency = 4;
+    int listOffsetsPartitionSize = 200;
+    int listOffsetsConcurrency = 4;
   }
 
   @Data

@@ -1,7 +1,7 @@
 import PageLoader from 'components/common/PageLoader/PageLoader';
 import TableHeaderCell from 'components/common/table/TableHeaderCell/TableHeaderCell';
 import { TopicMessage } from 'generated-sources';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from 'components/common/Button/Button';
 import * as S from 'components/common/NewTable/Table.styled';
 import { usePaginateTopics, useIsLiveMode } from 'lib/hooks/useMessagesFilters';
@@ -71,6 +71,19 @@ const MINIMUM_COLUMN_WIDTHS: MessageColumnWidths = {
   actions: 56,
 };
 
+const scheduleAnimationFrame = (callback: FrameRequestCallback) =>
+  window.requestAnimationFrame
+    ? window.requestAnimationFrame(callback)
+    : window.setTimeout(() => callback(Date.now()), 0);
+
+const cancelScheduledAnimationFrame = (frameId: number) => {
+  if (window.cancelAnimationFrame) {
+    window.cancelAnimationFrame(frameId);
+  } else {
+    window.clearTimeout(frameId);
+  }
+};
+
 interface MessagePreviewProps {
   [key: string]: {
     keyFilters: PreviewFilter[];
@@ -105,6 +118,7 @@ const MessagesTable: React.FC<MessagesTableProps> = ({
   const [draggedColumnWidths, setDraggedColumnWidths] = useState<
     Partial<MessageColumnWidths>
   >({});
+  const activeResizeCleanup = useRef<(() => void) | undefined>(undefined);
   const tableStorageKey = `${clusterName}:${topicName}`;
   const columnWidths = {
     ...DEFAULT_COLUMN_WIDTHS,
@@ -119,6 +133,13 @@ const MessagesTable: React.FC<MessagesTableProps> = ({
   useEffect(() => {
     setDraggedColumnWidths({});
   }, [tableStorageKey]);
+
+  useEffect(
+    () => () => {
+      activeResizeCleanup.current?.();
+    },
+    []
+  );
 
   useEffect(() => {
     setKeyFilters(messagesPreview[topicName]?.keyFilters || []);
@@ -189,28 +210,51 @@ const MessagesTable: React.FC<MessagesTableProps> = ({
     (columnId: ResizableMessageColumnId) =>
     (event: React.PointerEvent<HTMLButtonElement>) => {
       event.preventDefault();
+      activeResizeCleanup.current?.();
       const initialWidth = columnWidths[columnId];
       const initialX = event.clientX;
       let resizedWidth = initialWidth;
+      let scheduledFrame: number | undefined;
 
-      const handlePointerMove = (pointerEvent: PointerEvent) => {
-        resizedWidth = Math.max(
-          MINIMUM_COLUMN_WIDTHS[columnId],
-          initialWidth + pointerEvent.clientX - initialX
-        );
+      const updateDraggedWidth = () => {
+        scheduledFrame = undefined;
         setDraggedColumnWidths((currentWidths) => ({
           ...currentWidths,
           [columnId]: resizedWidth,
         }));
       };
 
-      const finishResize = () => {
-        persistColumnWidth(columnId, resizedWidth);
-        setDraggedColumnWidths({});
-        document.removeEventListener('pointermove', handlePointerMove);
-        document.removeEventListener('pointerup', finishResize);
+      const handlePointerMove = (pointerEvent: PointerEvent) => {
+        resizedWidth = Math.max(
+          MINIMUM_COLUMN_WIDTHS[columnId],
+          initialWidth + pointerEvent.clientX - initialX
+        );
+        if (scheduledFrame === undefined) {
+          scheduledFrame = scheduleAnimationFrame(updateDraggedWidth);
+        }
       };
 
+      let cleanupResize: () => void = () => undefined;
+
+      const finishResize = () => {
+        cleanupResize();
+        persistColumnWidth(columnId, resizedWidth);
+        setDraggedColumnWidths({});
+      };
+
+      cleanupResize = () => {
+        if (scheduledFrame !== undefined) {
+          cancelScheduledAnimationFrame(scheduledFrame);
+          scheduledFrame = undefined;
+        }
+        document.removeEventListener('pointermove', handlePointerMove);
+        document.removeEventListener('pointerup', finishResize);
+        if (activeResizeCleanup.current === cleanupResize) {
+          activeResizeCleanup.current = undefined;
+        }
+      };
+
+      activeResizeCleanup.current = cleanupResize;
       document.addEventListener('pointermove', handlePointerMove);
       document.addEventListener('pointerup', finishResize);
     };

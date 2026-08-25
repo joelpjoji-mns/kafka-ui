@@ -96,6 +96,20 @@ interface ConsumerGroupsApi {
   ): void;
 }
 
+@route("/api/clusters/{clusterName}/consumer-groups")
+@tag("Cooperative Consumer Groups")
+interface CooperativeConsumerGroupsApi {
+  @post
+  @route("/{id}/offsets/cooperative")
+  @operationId("cooperativeResetConsumerGroupOffsets")
+  @summary("Reset offsets through cooperating active consumers while the group remains stable")
+  cooperativeResetConsumerGroupOffsets(
+    @path clusterName: string,
+    @path id: string,
+    @body reset: ConsumerGroupOffsetsReset,
+  ): CooperativeConsumerGroupOffsetsResetResponse;
+}
+
 @route("/api/clusters/{clusterName}/topics/{topicName}/consumer-groups")
 @tag("Consumer Groups")
 interface TopicConsumerGroupsApi {
@@ -167,6 +181,19 @@ model ConsumerGroupOffsetsResetPreview {
   topic: string;
   resetType: ConsumerGroupOffsetsResetType;
   partitions: ConsumerGroupOffsetsResetPartitionPreview[];
+}
+
+model CooperativeConsumerGroupOffsetsResetResponse {
+  requestId: string;
+  groupState: ConsumerGroupState;
+  partitions: CooperativeConsumerGroupOffsetsResetPartition[];
+}
+
+model CooperativeConsumerGroupOffsetsResetPartition {
+  partition: int32;
+  previousOffset?: int64;
+  targetOffset: int64;
+  memberId: string;
 }
 
 model ConsumerGroupOffsetsResetPartitionPreview {

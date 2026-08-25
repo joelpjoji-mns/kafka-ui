@@ -3,6 +3,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render } from 'lib/testHelpers';
 import {
+  areLagTrendsEqual,
   LagTrendComponent,
   CONSUMER_LAG_THRESHOLD_KEY,
 } from 'lib/consumerGroups';
@@ -36,6 +37,31 @@ describe('Consumer lag threshold alerting', () => {
       localStorage.setItem(thresholdKey, '1000');
       render(<LagTrendComponent lag={999} />);
       expect(screen.queryByLabelText('lag alert')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Lag trend comparison', () => {
+    it('recognizes equal nested trend maps', () => {
+      const trends = {
+        groupLagTrends: { orders: 'same' as const },
+        topicsLagTrends: { orders: 'down' as const },
+        partitionsLagTrends: { orders: { '0': 'up' as const } },
+      };
+
+      expect(
+        areLagTrendsEqual(trends, {
+          groupLagTrends: { orders: 'same' },
+          topicsLagTrends: { orders: 'down' },
+          partitionsLagTrends: { orders: { '0': 'up' } },
+        })
+      ).toBe(true);
+      expect(
+        areLagTrendsEqual(trends, {
+          groupLagTrends: { orders: 'same' },
+          topicsLagTrends: { orders: 'down' },
+          partitionsLagTrends: { orders: { '0': 'down' } },
+        })
+      ).toBe(false);
     });
   });
 
