@@ -31,7 +31,18 @@ jobs:
           cache: 'gradle'
 
       - name: Run backend tests
-        run: ./gradlew :api:test
+        run: ./gradlew :api:test --stacktrace
+
+      - name: Upload backend test reports
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # https://github.com/actions/upload-artifact/releases/tag/v4
+        with:
+          name: backend-test-reports-${{ github.run_attempt }}
+          path: |
+            api/build/reports/tests/test/
+            api/build/test-results/test/
+          if-no-files-found: warn
+          retention-days: 14
 
   frontend-tests:
     name: Frontend checks
@@ -181,3 +192,16 @@ jobs:
               --title "MyKafka UI - $DISPLAY_VERSION" \
               --notes-file release-notes.md
           fi
+
+      - name: Verify release JAR
+        if: ${{ steps.meta.outputs.release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.meta.outputs.release_tag }}
+          ASSET_NAME: ${{ steps.meta.outputs.asset_name }}
+        shell: bash
+        run: |
+          gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json assets \
+            --jq '.assets[].name' | grep -Fx "$ASSET_NAME"

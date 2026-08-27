@@ -37,6 +37,7 @@ import java.util.zip.ZipInputStream;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.jupiter.api.AfterEach;
@@ -304,18 +305,20 @@ class MessagesServiceTest extends AbstractIntegrationTest {
   void cursorIsRegisteredAfterPollingIsDoneAndCanBeUsedForNextPagePolling(PollingModeDTO mode)
       throws Exception {
     String testTopic = MessagesServiceTest.class.getSimpleName() + UUID.randomUUID();
-    createTopicWithCleanup(new NewTopic(testTopic, 5, (short) 1));
+    int partitions = 5;
+    createTopicWithCleanup(new NewTopic(testTopic, partitions, (short) 1));
 
     int msgsToGenerate = 100;
     int pageSize = (msgsToGenerate / 2) + 1;
 
     try (var producer = KafkaTestProducer.forKafka(kafka)) {
-      for (int i = 0; i < msgsToGenerate - 1; i++) {
-        producer.send(testTopic, "message_" + i);
+      for (int i = 0; i < msgsToGenerate; i++) {
+        producer.send(new ProducerRecord<>(
+            testTopic,
+            i % partitions,
+            null,
+            "message_" + i)).get();
       }
-      // Wait for the last message to ensure all messages are visible before polling with LATEST
-      // mode
-      producer.send(testTopic, "message_" + (msgsToGenerate - 1)).get();
     }
 
     var cursorIdCatcher = new AtomicReference<String>();

@@ -89,13 +89,15 @@ class KafkaConnectServiceTests extends AbstractIntegrationTest {
         .exchange()
         .expectStatus().isOk();
 
-    // Force cache refresh and wait for the consumer to start
-    Awaitility.await().atMost(Duration.ofSeconds(30)).until(() ->
-        statisticsService.updateCache(kafkaCluster).map(v ->
-            Optional.ofNullable(
-                v.getClusterState().getConsumerGroupsStates().get("connect-" + connectorName)
-            ).isPresent()
-        ).block()
+    Awaitility.await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+        webTestClient.get()
+            .uri("/api/clusters/{clusterName}/connects/{connectName}/connectors/{connectorName}",
+                LOCAL, connectName, connectorName)
+            .exchange()
+            .expectStatus().isOk()
+            .expectBody(ConnectorDTO.class)
+            .value(connector ->
+                assertThat(connector.getStatus().getState()).isEqualTo(ConnectorStateDTO.RUNNING))
     );
   }
 
@@ -110,19 +112,46 @@ class KafkaConnectServiceTests extends AbstractIntegrationTest {
 
   @Test
   void shouldListAllConnectors() {
-    webTestClient.get()
-            .uri("/api/clusters/{clusterName}/connectors", LOCAL)
-            .exchange()
-            .expectStatus().isOk()
-            .expectBodyList(FullConnectorInfoDTO.class)
-            .value(connectors -> {
+    waitForConnectorConsumerGroup();
+
+    webTestClient
+        .get()
+        .uri("/api/clusters/{clusterName}/connectors", LOCAL)
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBodyList(FullConnectorInfoDTO.class)
+        .value(
+            connectors -> {
               assertThat(connectors)
                   .anyMatch(connector -> connector.getName().equals(connectorName));
               FullConnectorInfoDTO createdConnector =
-                  connectors.stream().filter(connector -> connector.getName().equals(connectorName))
-                      .findFirst().orElseThrow();
-              assertThat(createdConnector.getConsumer()).isEqualTo(JsonNullable.of("connect-" + connectorName));
+                  connectors.stream()
+                      .filter(connector -> connector.getName().equals(connectorName))
+                      .findFirst()
+                      .orElseThrow();
+              assertThat(createdConnector.getConsumer())
+                  .isEqualTo(JsonNullable.of("connect-" + connectorName));
             });
+  }
+
+  private void waitForConnectorConsumerGroup() {
+    KafkaCluster kafkaCluster = clustersStorage.getClusterByName(LOCAL).orElseThrow();
+    Awaitility.await()
+        .atMost(Duration.ofSeconds(30))
+        .until(
+            () ->
+                statisticsService
+                    .updateCache(kafkaCluster)
+                    .map(
+                        statistics ->
+                            Optional.ofNullable(
+                                    statistics
+                                        .getClusterState()
+                                        .getConsumerGroupsStates()
+                                        .get("connect-" + connectorName))
+                                .isPresent())
+                    .block());
   }
 
   @Test
@@ -211,6 +240,8 @@ class KafkaConnectServiceTests extends AbstractIntegrationTest {
 
   @Test
   void shouldRetrieveConnector() {
+    waitForConnectorConsumerGroup();
+
     ConnectorDTO expected = new ConnectorDTO()
         .connect(connectName)
         .status(new ConnectorStatusDTO()

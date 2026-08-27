@@ -12,6 +12,7 @@ import io.kafbat.ui.model.SchemaTypeDTO;
 import io.kafbat.ui.service.ClustersStorage;
 import io.kafbat.ui.service.StatisticsService;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -364,7 +365,7 @@ class SchemaRegistryServiceTests extends AbstractIntegrationTest {
     createNewSubjectAndAssert(subjectName);
     KafkaCluster kafkaCluster = clustersStorage.getClusterByName(LOCAL).get();
     // Wait for the topic to be cached
-    Awaitility.await().until(() ->
+    Awaitility.await().atMost(Duration.ofSeconds(30)).until(() ->
         statisticsService.updateCache(kafkaCluster)
             .map(s ->
                 s.getClusterState().getTopicStates().containsKey(topicName)
